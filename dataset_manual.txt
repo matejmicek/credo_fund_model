@@ -1,0 +1,330 @@
+--- Crunchbase Dataset Manual ---
+This file provides a detailed description of the features in the processed dataset.
+
+--- Feature: funding_rounds_list_enriched ---
+Description: A JSON string containing a list of funding rounds for the company, enriched with details (e.g., investment type, money raised) from the 'investors' column.
+Type: Object/Categorical
+Number of Unique Values: 172476
+Top 5 Value Counts:
+funding_rounds_list_enriched
+[{"announced_on": "2022-11-01", "id": "amagi-media-labs-series-f--77fcc8a0", "image_id": "ycmsuqn3rddyykb13keq", "lead_investors": [{"image": "c9023281c3644b05a91505d732b4f788", "name": "General Atlantic", "permalink": "general-atlantic"}], "money_raised": {"currency": "USD", "value": 82000000, "value_usd": 82000000}, "title": "Series F - Amagi Media Labs", "uuid": "77fcc8a0-5f18-4ab3-b38e-e1052f228319", "type": "funding_round", "value": "Series F - Amagi Media Labs"}, {"announced_on": "2022-11-01", "id": "amagi-media-labs-secondary-market--6e89a251", "image_id": "ycmsuqn3rddyykb13keq", "lead_investors": [{"image": "c9023281c3644b05a91505d732b4f788", "name": "General Atlantic", "permalink": "general-atlantic"}], "money_raised": {"currency": "USD", "value": 27500000, "value_usd": 27500000}, "title": "Secondary Market - Amagi Media Labs", "uuid": "6e89a251-837a-4d75-98fe-49a1735ebe78", "type": "funding_round", "value": "Secondary Market - Amagi Media Labs"}, {"announced_on": "2022-03-16", "id": "amagi-media-labs-series-unknown--8dd61296", "image_id": "ycmsuqn3rddyykb13keq", "lead_investors": [{"image": "4b204c04e1714c96960ba47d4978be70", "name": "Accel", "permalink": "accel"}], "money_raised": {"currency": "USD", "value": 95000000, "value_usd": 95000000}, "title": "Venture Round - Amagi Media Labs", "uuid": "8dd61296-d763-4fb8-9cf7-b73874b666ac", "type": "funding_round", "value": "Venture Round - Amagi Media Labs"}, {"announced_on": "2021-09-10", "id": "amagi-media-labs-series-unknown--059bf3e8", "image_id": "ycmsuqn3rddyykb13keq", "money_raised": {"currency": "USD", "value": 100000000, "value_usd": 100000000}, "title": "Venture Round - Amagi Media Labs", "uuid": "059bf3e8-d036-499c-ba24-7f1506873950", "type": "funding_round", "value": "Venture Round - Amagi Media Labs"}, {"announced_on": "2016-12-15", "id": "amagi-media-labs-series-d--2aa776b9", "image_id": "ycmsuqn3rddyykb13keq", "lead_investors": [{"image": "ya4jjxcf6unlhyualdum", "name": "Emerald Media", "permalink": "emerald-media"}], "money_raised": {"currency": "USD", "value": 35000000, "value_usd": 35000000}, "title": "Series D - Amagi Media Labs", "uuid": "2aa776b9-36ad-d0bd-4df7-d504fe9fba18", "type": "funding_round", "value": "Series D - Amagi Media Labs"}, {"announced_on": "2015-01-19", "id": "amagi-media-labs-series-c--aadd9b20", "image_id": "ycmsuqn3rddyykb13keq", "lead_investors": [{"image": "0d2658b179b647a8899dd6b3ea6c7059", "name": "Premji Invest", "permalink": "premjiinvest"}], "title": "Series C - Amagi Media Labs", "uuid": "aadd9b20-07da-0d7b-5a88-45bfc7f4fbcf"}, {"announced_on": "2014-06-01", "id": "amagi-media-labs-series-b--3eb22607", "image_id": "ycmsuqn3rddyykb13keq", "money_raised": {"currency": "USD", "value": 4700000, "value_usd": 4700000}, "title": "Series B - Amagi Media Labs", "uuid": "3eb22607-a165-3d1d-64a1-6c8c6bcb1f52"}, {"announced_on": "2013-06-17", "id": "amagi-media-labs-series-a--f244a91c", "image_id": "ycmsuqn3rddyykb13keq", "lead_investors": [{"image": "5c4767500e19431a9b5dce7f5a4fb11a", "name": "Mayfield Fund", "permalink": "mayfield-fund"}], "money_raised": {"currency": "USD", "value": 5500000, "value_usd": 5500000}, "title": "Series A - Amagi Media Labs", "uuid": "f244a91c-c714-317f-6fbb-c80dcc1d5135"}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        8
+[{"announced_on": "2023-09-05", "id": "brillio-private-equity--2e8d6ace", "image_id": "v1414600101/veo8kfubsma0mnhaqnmu.jpg", "lead_investors": [{"image": "cmnhsjpcflaj0jrudztd", "name": "The Orogen Group", "permalink": "the-orogen-group"}], "title": "Private Equity Round - Brillio", "uuid": "2e8d6ace-bad2-4a95-86cf-b897fd074f6a", "type": "funding_round", "value": "Private Equity Round - Brillio"}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              8
+[{"announced_on": "2021-10-19", "id": "jumpcloud-series-f--0fb3d115", "image_id": "ebo9yrw4ahkicrcuhlfw", "money_raised": {"currency": "USD", "value": 66000000, "value_usd": 66000000}, "title": "Series F - JumpCloud", "uuid": "0fb3d115-d06a-487b-bf93-5600f9d82af2", "type": "funding_round", "value": "Series F - JumpCloud"}, {"announced_on": "2021-09-13", "id": "jumpcloud-series-f--dc862fdf", "image_id": "ebo9yrw4ahkicrcuhlfw", "lead_investors": [{"image": "alb3msamv4i6yeobjyar", "name": "Sapphire Ventures", "permalink": "sapphire-ventures"}], "money_raised": {"currency": "USD", "value": 159000000, "value_usd": 159000000}, "title": "Series F - JumpCloud", "uuid": "dc862fdf-2421-4761-b684-86d35e801395", "type": "funding_round", "value": "Series F - JumpCloud"}, {"announced_on": "2021-01-12", "id": "jumpcloud-series-e--2aeba724", "image_id": "ebo9yrw4ahkicrcuhlfw", "lead_investors": [{"image": "jkxnetkimveoqxgqfftm", "name": "BlackRock Innovation Capital", "permalink": "blackrock-innovation-capital"}], "money_raised": {"currency": "USD", "value": 25000000, "value_usd": 25000000}, "title": "Series E - JumpCloud", "uuid": "2aeba724-4ceb-4dfc-8e53-ff0ce9bb1465"}, {"announced_on": "2020-11-10", "id": "jumpcloud-series-e--0e5bb632", "image_id": "ebo9yrw4ahkicrcuhlfw", "lead_investors": [{"image": "jkxnetkimveoqxgqfftm", "name": "BlackRock Innovation Capital", "permalink": "blackrock-innovation-capital"}], "money_raised": {"currency": "USD", "value": 75000000, "value_usd": 75000000}, "title": "Series E - JumpCloud", "uuid": "0e5bb632-66d7-43ea-8766-6e8ebd2d8585"}, {"announced_on": "2019-05-23", "id": "jumpcloud-series-d--eaf82914", "image_id": "ebo9yrw4ahkicrcuhlfw", "money_raised": {"currency": "USD", "value": 50000000, "value_usd": 50000000}, "title": "Series D - JumpCloud", "uuid": "eaf82914-85b4-4f2d-b79a-4ae4e13f08b5"}, {"announced_on": "2018-09-05", "id": "jumpcloud-debt-financing--6a647d29", "image_id": "ebo9yrw4ahkicrcuhlfw", "lead_investors": [{"image": "v1408101727/dsewfwcjirgzwn4p7xml.png", "name": "Comerica Incorporated", "permalink": "comerica-incorporated"}], "money_raised": {"currency": "USD", "value": 10000000, "value_usd": 10000000}, "title": "Debt Financing - JumpCloud", "uuid": "6a647d29-eae4-47b4-8a99-0fd02e20c8e5"}, {"announced_on": "2017-11-20", "id": "jumpcloud-series-c--28b9ede9", "image_id": "ebo9yrw4ahkicrcuhlfw", "lead_investors": [{"image": "c1nqj6sxismeoobfaswz", "name": "Foundry Group", "permalink": "foundryvc"}, {"image": "v1464869668/lrlk66iawygb25bcybq2.png", "name": "OpenView", "permalink": "openview-venture-partners"}], "money_raised": {"currency": "USD", "value": 20000000, "value_usd": 20000000}, "title": "Series C - JumpCloud", "uuid": "28b9ede9-eb63-49cf-8ba7-f4cc36b9223b"}, {"announced_on": "2016-08-09", "id": "jumpcloud-series-b--46a357ea", "image_id": "ebo9yrw4ahkicrcuhlfw", "lead_investors": [{"image": "v1505506488/gexqb1qq4zrnumm2ylpa.jpg", "name": "Ridge Ventures", "permalink": "ridge-ventures"}], "money_raised": {"currency": "USD", "value": 4250000, "value_usd": 4250000}, "title": "Series B - JumpCloud", "uuid": "46a357ea-1a18-0c91-683b-6a032ca608a9"}, {"announced_on": "2015-04-13", "id": "jumpcloud-series-b--908fa8f9", "image_id": "ebo9yrw4ahkicrcuhlfw", "money_raised": {"currency": "USD", "value": 3200000, "value_usd": 3200000}, "title": "Series B - JumpCloud", "uuid": "908fa8f9-11e8-1cd1-51d6-f369ef6e6a20"}, {"announced_on": "2015-03-30", "id": "jumpcloud-series-a--95b7aae9", "image_id": "ebo9yrw4ahkicrcuhlfw", "lead_investors": [{"image": "sfdhykaf0zcn2oavawe5", "name": "Techstars", "permalink": "techstars"}], "money_raised": {"currency": "USD", "value": 100000, "value_usd": 100000}, "title": "Series A - JumpCloud", "uuid": "95b7aae9-59a2-4f3a-958f-c36c85105874"}]    8
+[{"announced_on": "2021-05-17", "id": "techstars-series-unknown--a34fb021", "image_id": "sfdhykaf0zcn2oavawe5", "money_raised": {"currency": "USD", "value": 4999999, "value_usd": 4999999}, "title": "Venture Round - Techstars", "uuid": "a34fb021-562e-4f00-a089-d15958de793f"}, {"announced_on": "2019-07-30", "id": "techstars-series-b--5858a3be", "image_id": "sfdhykaf0zcn2oavawe5", "lead_investors": [{"image": "grc2tvffxtzuzu9mwrdq", "name": "SVB Financial Group", "permalink": "svb-financial-group"}], "money_raised": {"currency": "USD", "value": 42000000, "value_usd": 42000000}, "title": "Series B - Techstars", "uuid": "5858a3be-9e8f-4c0f-8d38-e75abd2c3d41", "type": "funding_round", "value": "Series B - Techstars"}, {"announced_on": "2016-02-01", "id": "techstars-series-unknown--d1e13098", "image_id": "sfdhykaf0zcn2oavawe5", "money_raised": {"currency": "USD", "value": 27800000, "value_usd": 27800000}, "title": "Venture Round - Techstars", "uuid": "d1e13098-a3ab-2808-b013-71ebd31e35d1"}, {"announced_on": "2011-09-21", "id": "techstars-series-unknown--81c1af96", "image_id": "sfdhykaf0zcn2oavawe5", "money_raised": {"currency": "USD", "value": 24000000, "value_usd": 24000000}, "title": "Venture Round - Techstars", "uuid": "81c1af96-8e29-8668-85c1-83119408b874", "type": "funding_round", "value": "Venture Round - Techstars"}, {"announced_on": "2011-03-29", "id": "techstars-series-unknown--fbdae101", "image_id": "sfdhykaf0zcn2oavawe5", "money_raised": {"currency": "USD", "value": 8000000, "value_usd": 8000000}, "title": "Venture Round - Techstars", "uuid": "fbdae101-35af-cf9b-1a57-ac2fd75c2d62"}, {"announced_on": "2011-02-10", "id": "techstars-series-unknown--ed02a92f", "image_id": "sfdhykaf0zcn2oavawe5", "money_raised": {"currency": "USD", "value": 2000000, "value_usd": 2000000}, "title": "Venture Round - Techstars", "uuid": "ed02a92f-c6bc-e298-12ee-291bae33dd13"}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               8
+[{"announced_on": "2015-05-20", "id": "basistech-series-b--140cb676", "image_id": "ptsaaouowle7nsqgtphw", "lead_investors": [{"image": "fmiblbggxoqqffjtdvkg", "name": "Neuberger Berman", "permalink": "neuberger-berman-group"}], "money_raised": {"currency": "USD", "value": 30000000, "value_usd": 30000000}, "title": "Series B - Basis Technologies", "uuid": "140cb676-bbac-8591-30ff-8953192a8fdf", "type": "funding_round", "value": "Series B - Basis Technologies"}, {"announced_on": "2011-01-04", "id": "basistech-series-a--738b780a", "image_id": "ptsaaouowle7nsqgtphw", "lead_investors": [{"image": "ccynexuwtyamhthvemev", "name": "FTV Capital", "permalink": "ftv-capital"}], "money_raised": {"currency": "USD", "value": 22500000, "value_usd": 22500000}, "title": "Series A - Basis Technologies", "uuid": "738b780a-db17-0903-1b66-425c4ef2def6", "type": "funding_round", "value": "Series A - Basis Technologies"}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               8
+
+--- Feature: founding_year ---
+Description: The year the company was founded, extracted from the 'founded_date' column. Allows for time-based analysis.
+Type: Numeric
+Stats:
+count    186769.000000
+mean       2014.382365
+std           5.684286
+min        2000.000000
+25%        2011.000000
+50%        2015.000000
+75%        2019.000000
+max        2025.000000
+
+--- Feature: total_funding_usd ---
+Description: The total funding raised by the company in USD, aggregated from all its funding rounds. A value of 0.0 indicates no funding information was available.
+Type: Numeric
+Stats:
+count    1.867700e+05
+mean     3.499711e+07
+std      4.828027e+08
+min      0.000000e+00
+25%      7.017250e+03
+50%      7.500000e+05
+75%      6.277881e+06
+max      1.000000e+11
+
+--- Feature: raised_seed_from_tier1 ---
+Description: A boolean flag that is TRUE if the company raised a Seed Round from a Tier-1 investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      184629
+
+--- Feature: raised_seed ---
+Description: A boolean flag that is TRUE if the company raised a Seed Round, regardless of investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      128263
+
+--- Feature: raised_series_a_from_tier1 ---
+Description: A boolean flag that is TRUE if the company raised a Series A from a Tier-1 investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      183743
+
+--- Feature: raised_series_a ---
+Description: A boolean flag that is TRUE if the company raised a Series A, regardless of investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      161432
+
+--- Feature: raised_series_b_from_tier1 ---
+Description: A boolean flag that is TRUE if the company raised a Series B from a Tier-1 investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      184334
+
+--- Feature: raised_series_b ---
+Description: A boolean flag that is TRUE if the company raised a Series B, regardless of investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      174092
+
+--- Feature: raised_series_c_from_tier1 ---
+Description: A boolean flag that is TRUE if the company raised a Series C from a Tier-1 investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      185149
+
+--- Feature: raised_series_c ---
+Description: A boolean flag that is TRUE if the company raised a Series C, regardless of investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      180738
+
+--- Feature: raised_series_d_from_tier1 ---
+Description: A boolean flag that is TRUE if the company raised a Series D from a Tier-1 investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      185815
+
+--- Feature: raised_series_d ---
+Description: A boolean flag that is TRUE if the company raised a Series D, regardless of investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      183998
+
+--- Feature: raised_series_e_from_tier1 ---
+Description: A boolean flag that is TRUE if the company raised a Series E from a Tier-1 investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      186290
+
+--- Feature: raised_series_e ---
+Description: A boolean flag that is TRUE if the company raised a Series E, regardless of investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      185488
+
+--- Feature: raised_series_f_from_tier1 ---
+Description: A boolean flag that is TRUE if the company raised a Series F from a Tier-1 investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      186509
+
+--- Feature: raised_series_f ---
+Description: A boolean flag that is TRUE if the company raised a Series F, regardless of investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      186174
+
+--- Feature: seed_round_size_usd ---
+Description: The amount in USD raised during the company's Seed Round. Only the first recorded round of this type is used.
+Type: Numeric
+Stats:
+count    4.017100e+04
+mean     2.344630e+06
+std      4.428398e+06
+min      0.000000e+00
+25%      3.000000e+05
+50%      1.219176e+06
+75%      3.000000e+06
+max      2.000000e+08
+
+--- Feature: series_a_round_size_usd ---
+Description: The amount in USD raised during the company's Series A. Only the first recorded round of this type is used.
+Type: Numeric
+Stats:
+count    2.228800e+04
+mean     1.280802e+07
+std      3.706117e+07
+min      9.000000e+00
+25%      3.588929e+06
+50%      7.382623e+06
+75%      1.400000e+07
+max      3.000000e+09
+
+--- Feature: series_b_round_size_usd ---
+Description: The amount in USD raised during the company's Series B. Only the first recorded round of this type is used.
+Type: Numeric
+Stats:
+count    1.172500e+04
+mean     2.713944e+07
+std      5.260166e+07
+min      1.000000e+04
+25%      8.000000e+06
+50%      1.591860e+07
+75%      3.000000e+07
+max      2.500000e+09
+
+--- Feature: series_c_round_size_usd ---
+Description: The amount in USD raised during the company's Series C. Only the first recorded round of this type is used.
+Type: Numeric
+Stats:
+count    5.671000e+03
+mean     4.915328e+07
+std      1.474766e+08
+min      1.675500e+04
+25%      1.200000e+07
+50%      2.649461e+07
+75%      5.300000e+07
+max      6.000000e+09
+
+--- Feature: series_d_round_size_usd ---
+Description: The amount in USD raised during the company's Series D. Only the first recorded round of this type is used.
+Type: Numeric
+Stats:
+count    2.626000e+03
+mean     6.923805e+07
+std      1.002773e+08
+min      1.000000e+05
+25%      1.612500e+07
+50%      3.900000e+07
+75%      8.500000e+07
+max      1.368670e+09
+
+--- Feature: series_e_round_size_usd ---
+Description: The amount in USD raised during the company's Series E. Only the first recorded round of this type is used.
+Type: Numeric
+Stats:
+count    1.230000e+03
+mean     9.771159e+07
+std      1.488516e+08
+min      1.444930e+05
+25%      2.500000e+07
+50%      5.250000e+07
+75%      1.250000e+08
+max      3.500000e+09
+
+--- Feature: series_f_round_size_usd ---
+Description: The amount in USD raised during the company's Series F. Only the first recorded round of this type is used.
+Type: Numeric
+Stats:
+count    5.700000e+02
+mean     1.337927e+08
+std      1.985034e+08
+min      0.000000e+00
+25%      3.500000e+07
+50%      7.750000e+07
+75%      1.500000e+08
+max      1.800000e+09
+
+--- Feature: time_from_seed_to_series_a_days ---
+Description: The time in days between the company's Seed Round and Series A.
+Type: Object/Categorical
+Number of Unique Values: 1854
+Top 5 Value Counts:
+time_from_seed_to_series_a_days
+365.0    25
+391.0    21
+405.0    19
+454.0    19
+457.0    19
+
+--- Feature: time_from_series_a_to_series_b_days ---
+Description: The time in days between the company's Series A and Series B.
+Type: Object/Categorical
+Number of Unique Values: 1669
+Top 5 Value Counts:
+time_from_series_a_to_series_b_days
+504.0    23
+455.0    23
+566.0    21
+567.0    21
+365.0    21
+
+--- Feature: time_from_series_b_to_series_c_days ---
+Description: The time in days between the company's Series B and Series C.
+Type: Object/Categorical
+Number of Unique Values: 1203
+Top 5 Value Counts:
+time_from_series_b_to_series_c_days
+537.0    15
+441.0    15
+468.0    14
+553.0    12
+482.0    12
+
+--- Feature: time_from_series_c_to_series_d_days ---
+Description: The time in days between the company's Series C and Series D.
+Type: Object/Categorical
+Number of Unique Values: 779
+Top 5 Value Counts:
+time_from_series_c_to_series_d_days
+420.0     10
+357.0      9
+1722.0     8
+385.0      8
+560.0      8
+
+--- Feature: time_from_series_d_to_series_e_days ---
+Description: The time in days between the company's Series D and Series E.
+Type: Object/Categorical
+Number of Unique Values: 409
+Top 5 Value Counts:
+time_from_series_d_to_series_e_days
+365.0     9
+425.0     8
+183.0     7
+1205.0    7
+608.0     7
+
+--- Feature: time_from_series_e_to_series_f_days ---
+Description: The time in days between the company's Series E and Series F.
+Type: Object/Categorical
+Number of Unique Values: 164
+Top 5 Value Counts:
+time_from_series_e_to_series_f_days
+2456.0    7
+715.0     5
+603.0     5
+456.0     4
+371.0     4
+
