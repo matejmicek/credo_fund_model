@@ -21,10 +21,14 @@ def get_default_model():
                 'avg_ticket': 0.25,
                 'entry_valuation_min': 1.5, 'entry_valuation_max': 4.0,
                 'follow_on_allocation_pct': 70,
+                'follow_on_probability': 60,
+                'follow_on_timing': 1.5,
+                'follow_on_size_pct_of_initial': 200,
+                'follow_on_valuation_multiple': 2.5,
                 'scenarios': [
-                    {'name': 'Failure', 'probability': 70, 'exit_valuation_min': 0.0, 'exit_valuation_max': 0.5, 'exit_year_min': 2, 'exit_year_max': 5, 'exit_dilution_pct': 50, 'follow_on_probability': 0, 'follow_on_timing': 1.5, 'follow_on_size_pct_of_initial': 0, 'follow_on_valuation_multiple': 1.0},
-                    {'name': 'Base Case', 'probability': 25, 'exit_valuation_min': 5.0, 'exit_valuation_max': 20.0, 'exit_year_min': 4, 'exit_year_max': 8, 'exit_dilution_pct': 30, 'follow_on_probability': 60, 'follow_on_timing': 1.5, 'follow_on_size_pct_of_initial': 200, 'follow_on_valuation_multiple': 2.5},
-                    {'name': 'Home Run', 'probability': 5, 'exit_valuation_min': 30.0, 'exit_valuation_max': 100.0, 'exit_year_min': 5, 'exit_year_max': 10, 'exit_dilution_pct': 25, 'follow_on_probability': 90, 'follow_on_timing': 1.0, 'follow_on_size_pct_of_initial': 400, 'follow_on_valuation_multiple': 4.0},
+                    {'name': 'Failure', 'probability': 70, 'exit_valuation_min': 0.0, 'exit_valuation_max': 0.5, 'exit_year_min': 2, 'exit_year_max': 5, 'exit_dilution_pct': 50},
+                    {'name': 'Base Case', 'probability': 25, 'exit_valuation_min': 5.0, 'exit_valuation_max': 20.0, 'exit_year_min': 4, 'exit_year_max': 8, 'exit_dilution_pct': 30},
+                    {'name': 'Home Run', 'probability': 5, 'exit_valuation_min': 30.0, 'exit_valuation_max': 100.0, 'exit_year_min': 5, 'exit_year_max': 10, 'exit_dilution_pct': 25},
                 ]
             },
             '1': {
@@ -33,10 +37,14 @@ def get_default_model():
                 'avg_ticket': 1.5,
                 'entry_valuation_min': 8.0, 'entry_valuation_max': 20.0,
                 'follow_on_allocation_pct': 30,
+                'follow_on_probability': 70,
+                'follow_on_timing': 2.0,
+                'follow_on_size_pct_of_initial': 150,
+                'follow_on_valuation_multiple': 2.0,
                 'scenarios': [
-                    {'name': 'Failure', 'probability': 40, 'exit_valuation_min': 0.0, 'exit_valuation_max': 3.0, 'exit_year_min': 3, 'exit_year_max': 6, 'exit_dilution_pct': 40, 'follow_on_probability': 0, 'follow_on_timing': 2.0, 'follow_on_size_pct_of_initial': 0, 'follow_on_valuation_multiple': 1.0},
-                    {'name': 'Base Case', 'probability': 50, 'exit_valuation_min': 30.0, 'exit_valuation_max': 100.0, 'exit_year_min': 4, 'exit_year_max': 8, 'exit_dilution_pct': 25, 'follow_on_probability': 70, 'follow_on_timing': 2.0, 'follow_on_size_pct_of_initial': 150, 'follow_on_valuation_multiple': 2.0},
-                    {'name': 'Home Run', 'probability': 10, 'exit_valuation_min': 100.0, 'exit_valuation_max': 400.0, 'exit_year_min': 5, 'exit_year_max': 9, 'exit_dilution_pct': 20, 'follow_on_probability': 90, 'follow_on_timing': 1.5, 'follow_on_size_pct_of_initial': 200, 'follow_on_valuation_multiple': 2.5},
+                    {'name': 'Failure', 'probability': 40, 'exit_valuation_min': 0.0, 'exit_valuation_max': 3.0, 'exit_year_min': 3, 'exit_year_max': 6, 'exit_dilution_pct': 40},
+                    {'name': 'Base Case', 'probability': 50, 'exit_valuation_min': 30.0, 'exit_valuation_max': 100.0, 'exit_year_min': 4, 'exit_year_max': 8, 'exit_dilution_pct': 25},
+                    {'name': 'Home Run', 'probability': 10, 'exit_valuation_min': 100.0, 'exit_valuation_max': 400.0, 'exit_year_min': 5, 'exit_year_max': 9, 'exit_dilution_pct': 20},
                 ]
             }
         }
@@ -65,8 +73,7 @@ def add_scenario(bucket_key):
         'name': f'New Scenario', 'probability': 0, 
         'exit_valuation_min': 10.0, 'exit_valuation_max': 20.0, 
         'exit_year_min': 5, 'exit_year_max': 8,
-        'exit_dilution_pct': 20, 'follow_on_probability': 50, 'follow_on_timing': 2.0,
-        'follow_on_size_pct_of_initial': 200, 'follow_on_valuation_multiple': 2.0,
+        'exit_dilution_pct': 20,
     })
 
 def remove_scenario(bucket_key, scenario_index):
@@ -89,8 +96,12 @@ def add_bucket():
         'avg_ticket': 1.0,
         'entry_valuation_min': 5.0, 'entry_valuation_max': 10.0,
         'follow_on_allocation_pct': 0,
+        'follow_on_probability': 50,
+        'follow_on_timing': 2.0,
+        'follow_on_size_pct_of_initial': 200,
+        'follow_on_valuation_multiple': 2.0,
         'scenarios': [
-            {'name': 'Default Scenario', 'probability': 100, 'exit_valuation_min': 10.0, 'exit_valuation_max': 20.0, 'exit_year_min': 5, 'exit_year_max': 8, 'exit_dilution_pct': 20, 'follow_on_probability': 50, 'follow_on_timing': 2.0, 'follow_on_size_pct_of_initial': 200, 'follow_on_valuation_multiple': 2.0},
+            {'name': 'Default Scenario', 'probability': 100, 'exit_valuation_min': 10.0, 'exit_valuation_max': 20.0, 'exit_year_min': 5, 'exit_year_max': 8, 'exit_dilution_pct': 20},
         ]
     }
     model['buckets'] = buckets # Ensure the change is saved back
@@ -200,6 +211,32 @@ def render_fund_model_ui():
             st.info(f"**Calculated Ownership Range:** {min_ownership:.1f}% - {max_ownership:.1f}%")
 
             st.markdown("---")
+            st.subheader("Follow-on Strategy")
+
+            fo_c1, fo_c2, fo_c3, fo_c4 = st.columns(4)
+            fo_c1.number_input("Follow-on Prob. (%)", 0, 100,
+                value=bucket.get('follow_on_probability', 50),
+                key=f'fm_b_{i_str}_foprob', help="Probability of a follow-on round for any investment in this bucket.",
+                on_change=update_model_value, args=(['buckets', i_str, 'follow_on_probability'], f'fm_b_{i_str}_foprob')
+            )
+            fo_c2.number_input("Timing (Yrs after initial)", min_value=0.0, step=0.5, format="%.1f",
+                value=float(bucket.get('follow_on_timing', 2.0)),
+                key=f'fm_b_{i_str}_fotime',
+                on_change=update_model_value, args=(['buckets', i_str, 'follow_on_timing'], f'fm_b_{i_str}_fotime')
+            )
+            fo_c3.number_input("Size (% of Initial)", min_value=0, step=10,
+                value=bucket.get('follow_on_size_pct_of_initial', 200),
+                key=f'fm_b_{i_str}_fosize',
+                on_change=update_model_value, args=(['buckets', i_str, 'follow_on_size_pct_of_initial'], f'fm_b_{i_str}_fosize')
+            )
+            fo_c4.number_input("Valuation (x Entry)", min_value=1.0, step=0.1, format="%.1f",
+                value=bucket.get('follow_on_valuation_multiple', 2.0),
+                key=f'fm_b_{i_str}_foval',
+                on_change=update_model_value, args=(['buckets', i_str, 'follow_on_valuation_multiple'], f'fm_b_{i_str}_foval')
+            )
+
+
+            st.markdown("---")
             st.subheader("Exit Scenarios")
 
             # --- Configurable Exit Scenarios ---
@@ -238,32 +275,6 @@ def render_fund_model_ui():
                             value=(scenario.get('exit_year_min', 5), scenario.get('exit_year_max', 8)), key=f'fm_b_{i_str}_s{s_idx}_exit', on_change=update_model_value, args=(['buckets', i_str, 'scenarios', s_idx, ['exit_year_min', 'exit_year_max']], f'fm_b_{i_str}_s{s_idx}_exit'))
                     with r2c4:
                         st.button("🗑️", key=f'remove_s_{i_str}_{s_idx}', on_click=remove_scenario, args=(i_str, s_idx), use_container_width=True, help="Remove this scenario")
-
-                    # --- ROW 3: Follow-on Details ---
-                    r3c1, r3c2 = st.columns(2)
-                    with r3c1:
-                        st.markdown("**Follow-on**")
-                        fo_c1, fo_c2 = st.columns(2)
-                        fo_c1.number_input("Prob. (%)", 0, 100,
-                            value=scenario.get('follow_on_probability', 50),
-                            key=f'fm_b_{i_str}_s{s_idx}_foprob', help="Probability of a follow-on round for this scenario.", on_change=update_model_value, args=(['buckets', i_str, 'scenarios', s_idx, 'follow_on_probability'], f'fm_b_{i_str}_s{s_idx}_foprob')
-                        )
-                        fo_c2.number_input("Timing (Yrs)", min_value=0.0, step=0.5, format="%.1f",
-                            value=float(scenario.get('follow_on_timing', 2.0)), key=f'fm_b_{i_str}_s{s_idx}_fotime', on_change=update_model_value, args=(['buckets', i_str, 'scenarios', s_idx, 'follow_on_timing'], f'fm_b_{i_str}_s{s_idx}_fotime')
-                        )
-                    with r3c2:
-                        st.markdown("**Follow-on Terms**")
-                        fot_c1, fot_c2 = st.columns(2)
-                        fot_c1.number_input(
-                            "Size (% of Initial)", min_value=0, step=10,
-                            value=scenario.get('follow_on_size_pct_of_initial', 200),
-                            key=f'fm_b_{i_str}_s{s_idx}_fosize', on_change=update_model_value, args=(['buckets', i_str, 'scenarios', s_idx, 'follow_on_size_pct_of_initial'], f'fm_b_{i_str}_s{s_idx}_fosize')
-                        )
-                        fot_c2.number_input(
-                            "Valuation (x Entry)", min_value=1.0, step=0.1, format="%.1f",
-                            value=scenario.get('follow_on_valuation_multiple', 2.0),
-                            key=f'fm_b_{i_str}_s{s_idx}_foval', on_change=update_model_value, args=(['buckets', i_str, 'scenarios', s_idx, 'follow_on_valuation_multiple'], f'fm_b_{i_str}_s{s_idx}_foval')
-                        )
 
                 if s_idx < len(scenarios) - 1:
                     st.markdown("---")
@@ -359,6 +370,39 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             cash_flows[investment_year] -= avg_ticket
             total_invested_cash += avg_ticket
 
+            # --- Ownership and Return Calculation ---
+            initial_ownership_pct = (avg_ticket / entry_valuation * 100) if entry_valuation > 0 else 0
+            
+            # Handle follow-on investment based on bucket-level strategy
+            follow_on_investment = 0
+            follow_on_ownership_pct = 0
+            follow_on_prob = bucket.get('follow_on_probability', 0)
+
+            if np.random.uniform(0, 100) < follow_on_prob:
+                # Check against the specific bucket's follow-on pool
+                follow_on_pool_for_bucket = follow_on_sub_pools.get(bucket_key, 0)
+                spent_from_pool = follow_on_capital_spent_by_bucket.get(bucket_key, 0)
+                
+                follow_on_size_pct = bucket.get('follow_on_size_pct_of_initial', 0)
+                follow_on_amount = avg_ticket * (follow_on_size_pct / 100)
+
+                if spent_from_pool + follow_on_amount <= follow_on_pool_for_bucket:
+                    follow_on_timing = bucket.get('follow_on_timing', 2.0)
+                    follow_on_year = investment_year + follow_on_timing
+                    
+                    # Ensure year is an integer for indexing
+                    if int(follow_on_year) < FUND_LIFE_YEARS:
+                        follow_on_investment = follow_on_amount
+                        follow_on_capital_spent_by_bucket[bucket_key] += follow_on_amount
+                        cash_flows[int(follow_on_year)] -= follow_on_investment
+                        total_invested_cash += follow_on_investment
+                        
+                        # Calculate ownership from follow-on
+                        follow_on_val_multiple = bucket.get('follow_on_valuation_multiple', 1.0)
+                        follow_on_valuation = entry_valuation * follow_on_val_multiple
+                        if follow_on_valuation > 0:
+                            follow_on_ownership_pct = (follow_on_investment / follow_on_valuation * 100)
+
             # Determine outcome
             scenarios = bucket.get('scenarios', [])
             if not scenarios: continue
@@ -375,40 +419,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
                 chosen_scenario.get('exit_valuation_min', 0.0),
                 chosen_scenario.get('exit_valuation_max', 0.0)
             )
-
-            # --- Ownership and Return Calculation ---
-            initial_ownership_pct = (avg_ticket / entry_valuation * 100) if entry_valuation > 0 else 0
             
-            # Handle follow-on investment
-            follow_on_investment = 0
-            follow_on_ownership_pct = 0
-            # Probabilistic check for follow-on based on the chosen scenario
-            follow_on_prob = chosen_scenario.get('follow_on_probability', 0)
-            if np.random.uniform(0, 100) < follow_on_prob:
-                # Check against the specific bucket's follow-on pool
-                follow_on_pool_for_bucket = follow_on_sub_pools.get(bucket_key, 0)
-                spent_from_pool = follow_on_capital_spent_by_bucket.get(bucket_key, 0)
-                
-                follow_on_size_pct = chosen_scenario.get('follow_on_size_pct_of_initial', 0)
-                follow_on_amount = avg_ticket * (follow_on_size_pct / 100)
-
-                if spent_from_pool + follow_on_amount <= follow_on_pool_for_bucket:
-                    follow_on_timing = chosen_scenario.get('follow_on_timing', 2.0)
-                    follow_on_year = investment_year + follow_on_timing
-                    
-                    # Ensure year is an integer for indexing
-                    if int(follow_on_year) < FUND_LIFE_YEARS:
-                        follow_on_investment = follow_on_amount
-                        follow_on_capital_spent_by_bucket[bucket_key] += follow_on_amount
-                        cash_flows[int(follow_on_year)] -= follow_on_investment
-                        total_invested_cash += follow_on_investment
-                        
-                        # Calculate ownership from follow-on
-                        follow_on_val_multiple = chosen_scenario.get('follow_on_valuation_multiple', 1.0)
-                        follow_on_valuation = entry_valuation * follow_on_val_multiple
-                        if follow_on_valuation > 0:
-                            follow_on_ownership_pct = (follow_on_investment / follow_on_valuation * 100)
-
             total_ownership_pct = initial_ownership_pct + follow_on_ownership_pct
             
             # Handle exit and realized value

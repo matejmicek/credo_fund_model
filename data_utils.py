@@ -5,6 +5,7 @@ from typing import List, Tuple
 
 class FundingStage(Enum):
     """Enum for funding stages, using values that appear at the start of funding round names."""
+    PRE_SEED = "Pre Seed Round"
     SEED = "Seed Round"
     SERIES_A = "Series A"
     SERIES_B = "Series B"

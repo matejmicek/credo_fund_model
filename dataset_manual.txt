@@ -39,6 +39,33 @@ min      0.000000e+00
 75%      6.277881e+06
 max      1.000000e+11
 
+--- Feature: region ---
+Description: The geographical region of the company, categorized as 'United States', 'Europe', or 'Other'.
+Type: Object/Categorical
+Number of Unique Values: 2
+Top 5 Value Counts:
+region
+United States    114747
+Europe            72023
+
+--- Feature: raised_pre_seed_from_tier1 ---
+Description: A boolean flag that is TRUE if the company raised a Pre Seed Round from a Tier-1 investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      186593
+
+--- Feature: raised_pre_seed ---
+Description: A boolean flag that is TRUE if the company raised a Pre Seed Round, regardless of investor.
+Type: Numeric
+Stats:
+count     186770
+unique         2
+top        False
+freq      164183
+
 --- Feature: raised_seed_from_tier1 ---
 Description: A boolean flag that is TRUE if the company raised a Seed Round from a Tier-1 investor.
 Type: Numeric
@@ -165,6 +192,19 @@ unique         2
 top        False
 freq      186174
 
+--- Feature: pre_seed_round_size_usd ---
+Description: The amount in USD raised during the company's Pre Seed Round. Only the first recorded round of this type is used.
+Type: Numeric
+Stats:
+count    1.594300e+04
+mean     6.131150e+05
+std      1.113813e+06
+min      0.000000e+00
+25%      1.095550e+05
+50%      2.500000e+05
+75%      6.650060e+05
+max      5.000000e+07
+
 --- Feature: seed_round_size_usd ---
 Description: The amount in USD raised during the company's Seed Round. Only the first recorded round of this type is used.
 Type: Numeric
@@ -255,6 +295,18 @@ min      0.000000e+00
 50%      7.750000e+07
 75%      1.500000e+08
 max      1.800000e+09
+
+--- Feature: time_from_pre_seed_to_seed_days ---
+Description: The time in days between the company's Pre Seed Round and Seed Round.
+Type: Object/Categorical
+Number of Unique Values: 1571
+Top 5 Value Counts:
+time_from_pre_seed_to_seed_days
+365.0    31
+396.0    21
+366.0    21
+731.0    19
+334.0    18
 
 --- Feature: time_from_seed_to_series_a_days ---
 Description: The time in days between the company's Seed Round and Series A.

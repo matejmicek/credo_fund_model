@@ -171,6 +171,8 @@ def add_tier1_investor_flags(df: pd.DataFrame, tier1_investors: List[str]) -> pd
                         if investor_name in investor_list_set:
                             # ...mark this stage as funded by a Tier-1 for this company.
                             stages_funded_by_tier1[stage] = True
+                        # Once matched, break the inner loop to prevent matching less specific stages
+                        break
 
             # After checking all investments for the company, update the DataFrame.
             for stage, was_funded_by_tier1 in stages_funded_by_tier1.items():
@@ -275,6 +277,38 @@ def add_round_timing_columns(df: pd.DataFrame) -> pd.DataFrame:
     print("Round timing columns added.")
     return df
 
+def add_region_column(df: pd.DataFrame) -> pd.DataFrame:
+    """Adds a 'region' column based on the 'location' field."""
+    print("Adding 'region' column...")
+
+    def get_region(location_json: Any) -> str:
+        """Parses the location JSON to determine the region."""
+        if pd.isna(location_json) or not isinstance(location_json, str):
+            return "Other"
+        
+        try:
+            locations = json.loads(location_json)
+            for loc in locations:
+                if isinstance(loc, dict):
+                    name = loc.get('name', '').strip()
+                    if name == "United States":
+                        return "United States"
+                    if name == "Europe":
+                        return "Europe"
+        except (json.JSONDecodeError, TypeError):
+            return "Other"
+        
+        return "Other"
+
+    if 'location' in df.columns:
+        df['region'] = df['location'].apply(get_region)
+    else:
+        df['region'] = 'Other'
+        print("Warning: 'location' column not found. 'region' initialized to 'Other'.")
+
+    print("'region' column added.")
+    return df
+
 # --- Main Execution ---
 
 def main():
@@ -314,7 +348,15 @@ def main():
         "The total funding raised by the company in USD, aggregated from all its funding rounds. A value of 0.0 indicates no funding information was available."
     )
     
-    # --- Step 4: Add Tier-1 Investor Flags ---
+    # --- Step 4: Add Region Column ---
+    df = add_region_column(df)
+    append_to_manual(
+        df,
+        'region',
+        "The geographical region of the company, categorized as 'United States', 'Europe', or 'Other'."
+    )
+    
+    # --- Step 5: Add Tier-1 Investor Flags ---
     df = add_tier1_investor_flags(df, TIER1_INVESTORS)
     for stage in FundingStage:
         col_name = f'raised_{stage.name.lower()}_from_tier1'
@@ -331,7 +373,7 @@ def main():
             f"A boolean flag that is TRUE if the company raised a {stage.value}, regardless of investor."
         )
 
-    # --- Step 5: Add Round Size Columns ---
+    # --- Step 6: Add Round Size Columns ---
     df = add_round_size_columns(df)
     for stage in FundingStage:
         col_name = f'{stage.name.lower()}_round_size_usd'
@@ -341,7 +383,7 @@ def main():
             f"The amount in USD raised during the company's {stage.value}. Only the first recorded round of this type is used."
         )
 
-    # --- Step 6: Add Round Timing Columns ---
+    # --- Step 7: Add Round Timing Columns ---
     df = add_round_timing_columns(df)
     for i in range(len(list(FundingStage)) - 1):
         from_stage = list(FundingStage)[i]
@@ -353,9 +395,9 @@ def main():
             f"The time in days between the company's {from_stage.value} and {to_stage.value}."
         )
         
-    # --- Step 7: Clean and Finalize Dataset ---
+    # --- Step 8: Clean and Finalize Dataset ---
     print("Cleaning final dataset...")
-    required_columns = ['funding_rounds_list_enriched', 'founding_year', 'investors', 'id', 'total_funding_usd']
+    required_columns = ['funding_rounds_list_enriched', 'founding_year', 'investors', 'id', 'total_funding_usd', 'region']
     # Print statistics about missing data for each required column
     print("\nMissing data statistics:")
     for col in required_columns:
@@ -365,7 +407,7 @@ def main():
     final_df = df.dropna(subset=required_columns).copy()
     print(f"Final dataset has {len(final_df):,} rows after cleaning.")
 
-    # --- Step 8: Select and Drop Unused Columns ---
+    # --- Step 9: Select and Drop Unused Columns ---
     print("Selecting final columns and dropping unused ones...")
     tier1_flag_columns = [f'raised_{stage.name.lower()}_from_tier1' for stage in FundingStage]
     raised_flag_columns = [f'raised_{stage.name.lower()}' for stage in FundingStage]
@@ -381,13 +423,14 @@ def main():
         'id',
         'founding_year',
         'total_funding_usd',
-        'funding_rounds_list_enriched'
+        'funding_rounds_list_enriched',
+        'region'
     ] + tier1_flag_columns + raised_flag_columns + round_size_columns + time_diff_columns
     
     final_df = final_df[final_columns_to_keep]
     print(f"Kept {len(final_df.columns)} columns for the final dataset.")
     
-    # --- Step 9: Save Processed Data ---
+    # --- Step 10: Save Processed Data ---
     print(f"Saving processed data to '{OUTPUT_FILE}'...")
     final_df.to_parquet(OUTPUT_FILE, index=False)
     
