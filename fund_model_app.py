@@ -161,11 +161,8 @@ def render_fund_model_ui():
     )
     
     # --- Main Panel for Bucket Configuration ---
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.header("Investment Bucket Configuration")
-    with col2:
-        st.button("Add New Bucket", on_click=add_bucket, use_container_width=True)
+    st.header("Investment Bucket Configuration")
+    st.button("Add New Bucket", on_click=add_bucket, use_container_width=True)
 
     # Sort keys to ensure consistent order
     sorted_bucket_keys = sorted(model.get('buckets', {}).keys(), key=int)
