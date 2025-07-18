@@ -55,7 +55,7 @@ Stats:
 count     186770
 unique         2
 top        False
-freq      186593
+freq      184697
 
 --- Feature: raised_pre_seed ---
 Description: A boolean flag that is TRUE if the company raised a Pre Seed Round, regardless of investor.
@@ -73,7 +73,7 @@ Stats:
 count     186770
 unique         2
 top        False
-freq      184629
+freq      182423
 
 --- Feature: raised_seed ---
 Description: A boolean flag that is TRUE if the company raised a Seed Round, regardless of investor.
@@ -91,7 +91,7 @@ Stats:
 count     186770
 unique         2
 top        False
-freq      183743
+freq      183177
 
 --- Feature: raised_series_a ---
 Description: A boolean flag that is TRUE if the company raised a Series A, regardless of investor.
@@ -109,7 +109,7 @@ Stats:
 count     186770
 unique         2
 top        False
-freq      184334
+freq      184057
 
 --- Feature: raised_series_b ---
 Description: A boolean flag that is TRUE if the company raised a Series B, regardless of investor.
@@ -127,7 +127,7 @@ Stats:
 count     186770
 unique         2
 top        False
-freq      185149
+freq      185043
 
 --- Feature: raised_series_c ---
 Description: A boolean flag that is TRUE if the company raised a Series C, regardless of investor.
@@ -145,7 +145,7 @@ Stats:
 count     186770
 unique         2
 top        False
-freq      185815
+freq      185784
 
 --- Feature: raised_series_d ---
 Description: A boolean flag that is TRUE if the company raised a Series D, regardless of investor.
@@ -163,7 +163,7 @@ Stats:
 count     186770
 unique         2
 top        False
-freq      186290
+freq      186280
 
 --- Feature: raised_series_e ---
 Description: A boolean flag that is TRUE if the company raised a Series E, regardless of investor.
@@ -181,7 +181,7 @@ Stats:
 count     186770
 unique         2
 top        False
-freq      186509
+freq      186501
 
 --- Feature: raised_series_f ---
 Description: A boolean flag that is TRUE if the company raised a Series F, regardless of investor.

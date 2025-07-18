@@ -65,6 +65,10 @@ def update_model_value(key_path, widget_key):
     else:
         target[key_path[-1]] = st.session_state[widget_key]
 
+    # After any model change, invalidate the previous simulation results
+    if 'simulation_results' in st.session_state:
+        del st.session_state.simulation_results
+
 def add_scenario(bucket_key):
     """Callback to add a new, empty scenario to a bucket."""
     model = st.session_state.fund_model
@@ -75,12 +79,16 @@ def add_scenario(bucket_key):
         'exit_year_min': 5, 'exit_year_max': 8,
         'exit_dilution_pct': 20,
     })
+    if 'simulation_results' in st.session_state:
+        del st.session_state.simulation_results
 
 def remove_scenario(bucket_key, scenario_index):
     """Callback to remove a scenario from a bucket."""
     model = st.session_state.fund_model
     if scenario_index < len(model['buckets'][bucket_key].get('scenarios', [])):
         del model['buckets'][bucket_key]['scenarios'][scenario_index]
+    if 'simulation_results' in st.session_state:
+        del st.session_state.simulation_results
 
 def add_bucket():
     """Callback to add a new, empty bucket."""
@@ -105,12 +113,16 @@ def add_bucket():
         ]
     }
     model['buckets'] = buckets # Ensure the change is saved back
+    if 'simulation_results' in st.session_state:
+        del st.session_state.simulation_results
 
 def remove_bucket(bucket_key):
     """Callback to remove a bucket by its key."""
     model = st.session_state.fund_model
     if bucket_key in model.get('buckets', {}):
         del model['buckets'][bucket_key]
+    if 'simulation_results' in st.session_state:
+        del st.session_state.simulation_results
 
 def render_fund_model_ui():
     """Renders the main UI once the model data is loaded into session state."""
@@ -147,10 +159,6 @@ def render_fund_model_ui():
         args=(['follow_on_reserve'], 'fm_follow_on_reserve'),
         help="Percentage of the fund set aside for follow-on investments."
     )
-    
-    st.sidebar.divider()
-    st.sidebar.header("Bucket Management")
-    st.sidebar.button("Add New Bucket", on_click=add_bucket, use_container_width=True)
     
     # --- Main Panel for Bucket Configuration ---
     col1, col2 = st.columns([3, 1])
@@ -249,7 +257,7 @@ def render_fund_model_ui():
                         st.text_input("Scenario Name", value=scenario.get('name', ''), key=f'fm_b_{i_str}_s{s_idx}_name',
                                       label_visibility="collapsed", on_change=update_model_value, args=(['buckets', i_str, 'scenarios', s_idx, 'name'], f'fm_b_{i_str}_s{s_idx}_name'))
                     with r1c2:
-                        st.number_input("Probability (%)", 0, 100, value=scenario.get('probability'), key=f'fm_b_{i_str}_s{s_idx}_prob', on_change=update_model_value, args=(['buckets', i_str, 'scenarios', s_idx, 'probability'], f'fm_b_{i_str}_s{s_idx}_prob'))
+                        st.number_input("Probability (%)", 0.0, 100.0, value=float(scenario.get('probability', 0.0)), step=0.1, format="%.1f", key=f'fm_b_{i_str}_s{s_idx}_prob', on_change=update_model_value, args=(['buckets', i_str, 'scenarios', s_idx, 'probability'], f'fm_b_{i_str}_s{s_idx}_prob'))
 
                     # --- ROW 2: Exit Details ---
                     r2c1, r2c2, r2c3, r2c4 = st.columns([3, 2, 4, 1])
@@ -561,7 +569,7 @@ def display_simulation_results(results_df):
     with tab1:
         st.subheader("Distribution of Fund Returns (TVPI)")
         fig_tvpi = go.Figure()
-        fig_tvpi.add_trace(go.Histogram(x=results_df['tvpi'], nbinsx=50, name='Distribution', histnorm='percent'))
+        fig_tvpi.add_trace(go.Histogram(x=results_df['tvpi'], nbinsx=200, name='Distribution', histnorm='percent'))
         fig_tvpi.add_vline(x=mean_tvpi, line_width=2, line_dash="dash", line_color="red",
                       annotation_text=f"Mean: {mean_tvpi:.2f}x", annotation_position="top right")
         fig_tvpi.update_layout(

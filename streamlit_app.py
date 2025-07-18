@@ -13,7 +13,6 @@ from fund_model_app import render_fund_model
 
 st.set_page_config(layout="wide")
 st.title("🎓 Unified Startup Analysis")
-st.markdown("This dashboard provides a dynamic view of startup success metrics based on Tier-1 VC funding.")
 
 # --- App Navigation ---
 st.sidebar.title("App Navigation")
@@ -71,6 +70,29 @@ if app_mode == "Startup Analysis":
     # --- Main Panel for Dynamic Analysis ---
 
     st.header(f"Analysis based on investment at the `{filtering_stage.value}` stage")
+
+    # --- Tier-1 VC Information Expander (Conditional) ---
+    if analysis_mode == "Investor Tier":
+        with st.expander("About Tier-1 VC Classification"):
+            st.markdown("""
+            This dashboard provides a dynamic view of startup success metrics based on Tier-1 VC funding.
+            The classification of a "Tier-1" investor is subjective and based on a curated list of well-known, top-performing venture capital firms.
+            
+            **The following investors are considered Tier-1 for this analysis:**
+            """)
+            
+            # Format the list into multiple columns for better readability
+            num_columns = 4
+            investor_list = sorted(TIER1_INVESTORS)
+            
+            # Calculate the number of investors per column
+            investors_per_column = -(-len(investor_list) // num_columns)  # Ceiling division
+            
+            cols = st.columns(num_columns)
+            for i in range(num_columns):
+                with cols[i]:
+                    for investor in investor_list[i * investors_per_column : (i + 1) * investors_per_column]:
+                        st.markdown(f"- {investor}")
 
     # Dynamically filter the dataset based on the sidebar selection
     raised_stage_flag_col = f'raised_{filtering_stage.name.lower()}'
