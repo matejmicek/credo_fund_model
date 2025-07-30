@@ -320,8 +320,16 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
 
     fund_size = fund_model['fund_size']
     follow_on_reserve_pct = fund_model['follow_on_reserve']
-    initial_capital_pool = fund_size * (1 - follow_on_reserve_pct / 100)
-    total_follow_on_pool = fund_size * (follow_on_reserve_pct / 100)
+
+    # Reserve capital for management fees from the total fund size.
+    # The fee cap (17%) is used to determine the total fee reserve.
+    # This matches the cap used in the Net IRR calculation later.
+    management_fee_reserve = fund_size * 0.17 
+    investable_capital = fund_size - management_fee_reserve
+
+    # Investment pools are now derived from the remaining 'investable_capital'.
+    initial_capital_pool = investable_capital * (1 - follow_on_reserve_pct / 100)
+    total_follow_on_pool = investable_capital * (follow_on_reserve_pct / 100)
 
     # Create bucket-specific follow-on pools
     follow_on_sub_pools = {
@@ -338,6 +346,9 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
         
         # Track spent capital from each sub-pool
         follow_on_capital_spent_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
+        initial_capital_invested_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
+        initial_investment_count_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
+        follow_on_investment_count_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
 
         # Create a list of all initial investments with their deployment years
         all_investments = []
@@ -371,6 +382,10 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             entry_valuation_max = bucket.get('entry_valuation_max', 0)
             entry_valuation = np.random.uniform(entry_valuation_min, entry_valuation_max) if entry_valuation_max > entry_valuation_min else entry_valuation_min
 
+            # Track initial investment stats
+            initial_capital_invested_by_bucket[bucket_key] += avg_ticket
+            initial_investment_count_by_bucket[bucket_key] += 1
+
             # Initial investment cash flow
             cash_flows[investment_year] -= avg_ticket
             total_invested_cash += avg_ticket
@@ -399,6 +414,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
                     if int(follow_on_year) < FUND_LIFE_YEARS:
                         follow_on_investment = follow_on_amount
                         follow_on_capital_spent_by_bucket[bucket_key] += follow_on_amount
+                        follow_on_investment_count_by_bucket[bucket_key] += 1
                         cash_flows[int(follow_on_year)] -= follow_on_investment
                         total_invested_cash += follow_on_investment
                         
@@ -430,7 +446,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             # Handle exit and realized value
             time_to_exit = np.random.randint(
                 chosen_scenario.get('exit_year_min', 5), 
-                chosen_scenario.get('exit_year_max', 9) + 1
+                chosen_scenario.get('exit_year_max', 8) + 1
             )
             exit_year = investment_year + time_to_exit
 
@@ -500,11 +516,18 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             gross_irr = -1.0
             net_irr = -1.0
 
-        simulation_runs.append({
+        run_data = {
             'moic': moic, 'tvpi': tvpi, 
             'gross_irr': gross_irr, 'net_irr': net_irr,
             'total_invested': total_invested_cash, 'total_realized': total_realized_value
-        })
+        }
+        for i_str in fund_model['buckets'].keys():
+            run_data[f'initial_invested_b{i_str}'] = initial_capital_invested_by_bucket[i_str]
+            run_data[f'initial_count_b{i_str}'] = initial_investment_count_by_bucket[i_str]
+            run_data[f'follow_on_invested_b{i_str}'] = follow_on_capital_spent_by_bucket[i_str]
+            run_data[f'follow_on_count_b{i_str}'] = follow_on_investment_count_by_bucket[i_str]
+        
+        simulation_runs.append(run_data)
 
     return pd.DataFrame(simulation_runs)
 
@@ -559,6 +582,67 @@ def display_simulation_results(results_df):
         col1.metric("Mean Net IRR", f"{mean_net_irr:.1f}%")
         col2.metric("Median Net IRR", f"{median_net_irr:.1f}%")
         col3.metric("P(Net > 25%)", f"{prob_net_irr_25:.1f}%")
+
+    # --- Capital Deployment Analysis ---
+    st.subheader("Capital Deployment Analysis")
+    with st.expander("Show Detailed Deployment Statistics by Bucket"):
+        model = st.session_state.fund_model
+        
+        # Recalculate capital pools to get allocated amounts
+        fund_size = model['fund_size']
+        follow_on_reserve_pct = model['follow_on_reserve']
+        management_fee_reserve = fund_size * 0.17 
+        investable_capital = fund_size - management_fee_reserve
+        initial_capital_pool = investable_capital * (1 - follow_on_reserve_pct / 100)
+        total_follow_on_pool = investable_capital * (follow_on_reserve_pct / 100)
+        follow_on_sub_pools = {
+            i_str: total_follow_on_pool * (bucket.get('follow_on_allocation_pct', 0) / 100)
+            for i_str, bucket in model['buckets'].items()
+        }
+
+        # Display stats for each bucket
+        sorted_bucket_keys = sorted(model.get('buckets', {}).keys(), key=int)
+        for i_str in sorted_bucket_keys:
+            bucket = model['buckets'][i_str]
+            st.markdown(f"#### Bucket: {bucket.get('name', '')}")
+
+            # Calculate allocated amounts for this bucket
+            allocated_initial = initial_capital_pool * (bucket.get('percentage', 0) / 100)
+            allocated_follow_on = follow_on_sub_pools.get(i_str, 0)
+            
+            # Get mean results from the simulation dataframe
+            mean_invested_initial = results_df[f'initial_invested_b{i_str}'].mean()
+            mean_count_initial = results_df[f'initial_count_b{i_str}'].mean()
+            mean_invested_follow_on = results_df[f'follow_on_invested_b{i_str}'].mean()
+            mean_count_follow_on = results_df[f'follow_on_count_b{i_str}'].mean()
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Initial Investments**")
+                st.metric(
+                    label="Capital Deployed (vs. Allocated)",
+                    value=f"${mean_invested_initial:.2f}M / ${allocated_initial:.2f}M"
+                )
+                st.metric(
+                    label="Number of Investments",
+                    value=f"{mean_count_initial:.1f}",
+                    help=f"The average number of initial investments made from this bucket in the simulation."
+                )
+
+            with col2:
+                st.markdown("**Follow-on Investments**")
+                st.metric(
+                    label="Capital Deployed (vs. Allocated)",
+                    value=f"${mean_invested_follow_on:.2f}M / ${allocated_follow_on:.2f}M"
+                )
+                st.metric(
+                    label="Number of Investments",
+                    value=f"{mean_count_follow_on:.1f}",
+                    help=f"The average number of follow-on investments made from this bucket's reserve."
+                )
+            
+            if i_str != sorted_bucket_keys[-1]:
+                 st.markdown("---")
 
     # --- Charts ---
     tab1, tab2, tab3 = st.tabs(["TVPI Distribution", "Gross IRR Distribution", "Net IRR Distribution"])
