@@ -7,6 +7,9 @@ from scipy.stats import beta
 import json
 from copy import deepcopy
 
+# Allow larger dataframes to be styled
+pd.set_option("styler.render.max_elements", None)
+
 # --- Main Application Logic ---
 
 def get_default_model():
@@ -164,10 +167,18 @@ def render_fund_model_ui():
     st.header("Investment Bucket Configuration")
     st.button("Add New Bucket", on_click=add_bucket, use_container_width=True)
 
+    # --- Capital Pool Calculations for UI display ---
+    fund_size = model.get('fund_size', 0)
+    follow_on_reserve_pct = model.get('follow_on_reserve', 0)
+    management_fee_reserve = fund_size * 0.17 
+    investable_capital = fund_size - management_fee_reserve
+    initial_capital_pool = investable_capital * (1 - follow_on_reserve_pct / 100)
+    total_follow_on_pool = investable_capital * (follow_on_reserve_pct / 100)
+
     # Sort keys to ensure consistent order
     sorted_bucket_keys = sorted(model.get('buckets', {}).keys(), key=int)
 
-    for i_str in sorted_bucket_keys:
+    for i, i_str in enumerate(sorted_bucket_keys):
         bucket = model['buckets'][i_str]
         with st.expander(f"Bucket: {bucket.get('name', '')} ({int(bucket.get('percentage', 0))}%)", expanded=True):
             
@@ -179,9 +190,15 @@ def render_fund_model_ui():
 
             alloc_c1, alloc_c2 = st.columns(2)
             with alloc_c1:
+                percentage_initial = bucket.get('percentage', 0)
+                absolute_initial = initial_capital_pool * (percentage_initial / 100)
                 st.slider("Percentage of Initial Capital (%)", 0, 100, value=int(bucket.get('percentage', 0)), key=f'fm_b_{i_str}_perc', on_change=update_model_value, args=(['buckets', i_str, 'percentage'], f'fm_b_{i_str}_perc'))
+                st.caption(f"Allocated: **${absolute_initial:.2f}M**")
             with alloc_c2:
+                percentage_follow_on = bucket.get('follow_on_allocation_pct', 0)
+                absolute_follow_on = total_follow_on_pool * (percentage_follow_on / 100)
                 st.slider("Percentage of Follow-on Capital (%)", 0, 100, value=int(bucket.get('follow_on_allocation_pct', 0)), key=f'fm_b_{i_str}_follow_perc', on_change=update_model_value, args=(['buckets', i_str, 'follow_on_allocation_pct'], f'fm_b_{i_str}_follow_perc'))
+                st.caption(f"Allocated: **${absolute_follow_on:.2f}M**")
 
 
             st.markdown("---")
@@ -215,6 +232,11 @@ def render_fund_model_ui():
             
             st.info(f"**Calculated Ownership Range:** {min_ownership:.1f}% - {max_ownership:.1f}%")
 
+            # Expected number of initial investments
+            absolute_initial_for_bucket = initial_capital_pool * (bucket.get('percentage', 0) / 100)
+            expected_initial_investments = (absolute_initial_for_bucket / avg_ticket) if avg_ticket > 0 else 0
+            st.info(f"Based on a \\${absolute_initial_for_bucket:.2f}M allocation and \\${avg_ticket:.2f}M average ticket, you can make roughly {expected_initial_investments:.1f} initial investments.")
+
             st.markdown("---")
             st.subheader("Follow-on Strategy")
 
@@ -239,6 +261,32 @@ def render_fund_model_ui():
                 key=f'fm_b_{i_str}_foval',
                 on_change=update_model_value, args=(['buckets', i_str, 'follow_on_valuation_multiple'], f'fm_b_{i_str}_foval')
             )
+
+            # --- Dynamic Follow-on Calculation ---
+            avg_ticket = bucket.get('avg_ticket', 0)
+            follow_on_prob_pct = bucket.get('follow_on_probability', 50)
+            follow_on_size_pct = bucket.get('follow_on_size_pct_of_initial', 200)
+            percentage_follow_on = bucket.get('follow_on_allocation_pct', 0)
+            
+            absolute_initial_for_bucket = initial_capital_pool * (bucket.get('percentage', 0) / 100)
+            expected_initial_investments = (absolute_initial_for_bucket / avg_ticket) if avg_ticket > 0 else 0
+
+            expected_follow_on_investments = expected_initial_investments * (follow_on_prob_pct / 100)
+            avg_follow_on_ticket = avg_ticket * (follow_on_size_pct / 100)
+            needed_follow_on_capital = expected_follow_on_investments * avg_follow_on_ticket
+            
+            allocated_follow_on = total_follow_on_pool * (percentage_follow_on / 100)
+
+            message = (
+                f"With {expected_initial_investments:.1f} initial investments and a {follow_on_prob_pct:.0f}% follow-on rate, "
+                f"you can expect ~{expected_follow_on_investments:.1f} follow-on deals. "
+                f"This would require \\${needed_follow_on_capital:.2f}M. You have allocated \\${allocated_follow_on:.2f}M."
+            )
+
+            if needed_follow_on_capital > allocated_follow_on and allocated_follow_on > 0:
+                st.warning(message)
+            else:
+                st.info(message)
 
 
             st.markdown("---")
@@ -286,7 +334,12 @@ def render_fund_model_ui():
 
             st.button("Add Scenario", key=f'add_s_{i_str}', on_click=add_scenario, args=(i_str,), use_container_width=True)
     
-    st.divider()
+        # Add a divider and spacing between bucket cards for better visual separation
+        if i < len(sorted_bucket_keys) - 1:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.divider()
+            st.markdown("<br>", unsafe_allow_html=True)
+
     
     # Call validation function *after* all UI widgets have been rendered and updated state
     warnings = validate_model_and_get_warnings(model)
@@ -304,9 +357,57 @@ def render_fund_model_ui():
         st.info("Please resolve the configuration warnings before running the simulation.")
 
     if st.button("Run Monte Carlo Simulation", type="primary", disabled=run_disabled):
-        with st.spinner(f"Running 10,000 simulations... This may take a moment."):
-            results_df = run_monte_carlo_simulation(st.session_state.fund_model, 10000)
-            st.session_state.simulation_results = results_df
+        with st.spinner("Running main simulation (10,000 iterations)... This might take a moment."):
+            main_results_df = run_monte_carlo_simulation(st.session_state.fund_model, 10000)
+            st.session_state.simulation_results = main_results_df
+
+        # --- Fund Size Sensitivity Analysis ---
+        analysis_results = []
+        base_fund_size = st.session_state.fund_model['fund_size']
+        
+        min_size = base_fund_size - 20
+        max_size = base_fund_size + 50
+        step = 5
+        # Ensure min size is positive
+        fund_sizes_to_test = list(range(max(step, min_size), max_size + 1, step))
+        if base_fund_size not in fund_sizes_to_test:
+            fund_sizes_to_test.append(base_fund_size)
+            fund_sizes_to_test.sort()
+
+        status_text = st.empty()
+        progress_bar = st.progress(0)
+        num_sizes = len(fund_sizes_to_test)
+
+        for i, size in enumerate(fund_sizes_to_test):
+            status_text.text(f"Running sensitivity analysis for fund size: ${size}M...")
+            
+            if size == base_fund_size:
+                # Use the high-precision results for the base case
+                results_df = main_results_df
+            else:
+                # Run lower-precision simulation for other sizes
+                model_copy = deepcopy(st.session_state.fund_model)
+                model_copy['fund_size'] = size
+                results_df = run_monte_carlo_simulation(model_copy, 2000)
+
+            # Calculate and store metrics for this fund size
+            mean_tvpi = results_df['tvpi'].mean()
+            prob_3x = (results_df['tvpi'] >= 3).mean() * 100
+            prob_5x = (results_df['tvpi'] >= 5).mean() * 100
+            
+            analysis_results.append({
+                'fund_size': size,
+                'mean_tvpi': mean_tvpi,
+                'prob_tvpi_gt_3x': prob_3x,
+                'prob_tvpi_gt_5x': prob_5x
+            })
+            
+            progress_bar.progress((i + 1) / num_sizes)
+        
+        status_text.text("Analysis complete!")
+        st.session_state.fund_size_analysis_results = pd.DataFrame(analysis_results)
+        progress_bar.empty()
+        status_text.empty()
     
     if 'simulation_results' in st.session_state:
         display_simulation_results(st.session_state.simulation_results)
@@ -343,6 +444,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
         cash_flows = np.zeros(FUND_LIFE_YEARS)
         total_invested_cash = 0
         total_realized_value = 0
+        realized_value_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
         
         # Track spent capital from each sub-pool
         follow_on_capital_spent_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
@@ -456,6 +558,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
                 final_ownership_pct = total_ownership_pct * (1 - exit_dilution_pct / 100)
                 
                 realized_value = (final_ownership_pct / 100) * exit_valuation
+                realized_value_by_bucket[bucket_key] += realized_value
                 cash_flows[exit_year] += realized_value
                 total_realized_value += realized_value
 
@@ -526,6 +629,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             run_data[f'initial_count_b{i_str}'] = initial_investment_count_by_bucket[i_str]
             run_data[f'follow_on_invested_b{i_str}'] = follow_on_capital_spent_by_bucket[i_str]
             run_data[f'follow_on_count_b{i_str}'] = follow_on_investment_count_by_bucket[i_str]
+            run_data[f'realized_b{i_str}'] = realized_value_by_bucket.get(i_str, 0)
         
         simulation_runs.append(run_data)
 
@@ -540,17 +644,19 @@ def display_simulation_results(results_df):
 
     # --- Metrics ---
     st.subheader("Key Performance Indicators")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     mean_tvpi = results_df['tvpi'].mean()
     median_tvpi = results_df['tvpi'].median()
     prob_3x = (results_df['tvpi'] >= 3).mean() * 100
+    prob_5x = (results_df['tvpi'] >= 5).mean() * 100
     prob_loss = (results_df['tvpi'] < 1).mean() * 100
 
     col1.metric("Mean TVPI", f"{mean_tvpi:.2f}x")
     col2.metric("Median TVPI", f"{median_tvpi:.2f}x")
-    col3.metric("P(TVPI > 3x)", f"{prob_3x:.1f}%")
-    col4.metric("P(Loss of Capital)", f"{prob_loss:.1f}%")
+    col3.metric("P(Loss of Capital)", f"{prob_loss:.1f}%")
+    col4.metric("P(TVPI > 3x)", f"{prob_3x:.1f}%")
+    col5.metric("P(TVPI > 5x)", f"{prob_5x:.1f}%")
 
     # --- IRR Metrics ---
     # Filter out failed IRR calculations for metrics
@@ -600,11 +706,30 @@ def display_simulation_results(results_df):
             for i_str, bucket in model['buckets'].items()
         }
 
-        # Display stats for each bucket
+        # --- Full Fund Stats ---
+        st.markdown("#### Full Fund Deployment")
+        mean_total_invested = results_df['total_invested'].mean()
+        st.metric(
+            label="Total Capital Deployed (vs. Investable)",
+            value=f"${mean_total_invested:.2f}M / ${investable_capital:.2f}M",
+            help="Investable capital is the fund size minus a 17% reserve for management fees."
+        )
+
         sorted_bucket_keys = sorted(model.get('buckets', {}).keys(), key=int)
+        total_initial_investments = sum(results_df[f'initial_count_b{i_str}'].mean() for i_str in sorted_bucket_keys)
+        total_follow_on_investments = sum(results_df[f'follow_on_count_b{i_str}'].mean() for i_str in sorted_bucket_keys)
+
+        col1, col2 = st.columns(2)
+        col1.metric("Total Initial Investments", f"{total_initial_investments:.1f}")
+        col2.metric("Total Follow-on Investments", f"{total_follow_on_investments:.1f}")
+
+        st.markdown("---")
+        st.markdown("#### Deployment by Bucket")
+
+        # Display stats for each bucket
         for i_str in sorted_bucket_keys:
             bucket = model['buckets'][i_str]
-            st.markdown(f"#### Bucket: {bucket.get('name', '')}")
+            st.markdown(f"##### Bucket: {bucket.get('name', '')}")
 
             # Calculate allocated amounts for this bucket
             allocated_initial = initial_capital_pool * (bucket.get('percentage', 0) / 100)
@@ -645,21 +770,115 @@ def display_simulation_results(results_df):
                  st.markdown("---")
 
     # --- Charts ---
-    tab1, tab2, tab3 = st.tabs(["TVPI Distribution", "Gross IRR Distribution", "Net IRR Distribution"])
+    # Define tabs
+    tab_titles = ["TVPI Distribution", "Gross IRR Distribution", "Net IRR Distribution"]
+    if 'fund_size_analysis_results' in st.session_state:
+        tab_titles.append("Fund Size Analysis")
+    
+    tabs = st.tabs(tab_titles)
 
-    with tab1:
+    with tabs[0]: # TVPI Distribution
+        model = st.session_state.fund_model
+        sorted_bucket_keys = sorted(model.get('buckets', {}).keys(), key=int)
+
+        # 1. Calculate all TVPI series to determine shared axis ranges
+        main_tvpi = results_df['tvpi']
+        bucket_tvpis = {}
+        for i_str in sorted_bucket_keys:
+            bucket = model['buckets'][i_str]
+            invested_col_initial = f'initial_invested_b{i_str}'
+            invested_col_follow_on = f'follow_on_invested_b{i_str}'
+            realized_col = f'realized_b{i_str}'
+            
+            if realized_col in results_df.columns:
+                total_invested_in_bucket = results_df[invested_col_initial] + results_df[invested_col_follow_on]
+                bucket_tvpi = (results_df[realized_col] / total_invested_in_bucket).replace([np.inf, -np.inf], 0).fillna(0)
+                bucket_tvpis[i_str] = bucket_tvpi
+
+        # 2. Determine shared Y-axis range by pre-calculating histogram heights
+        all_tvpi_series = [main_tvpi] + list(bucket_tvpis.values())
+        max_y = 0
+        # Use a high but fixed TVPI value for consistent binning to find max Y
+        hist_range_max = 50 
+        num_bins = 200 # Consistent number of bins for height calculation
+        
+        for series in all_tvpi_series:
+            clean_series = series.replace([np.inf, -np.inf], np.nan).dropna()
+            if not clean_series.empty:
+                counts, _ = np.histogram(clean_series, bins=num_bins, range=(0, hist_range_max))
+                # Normalize to percentage of total
+                percentages = (counts / len(clean_series)) * 100 if len(clean_series) > 0 else counts
+                if len(percentages) > 0:
+                    max_y = max(max_y, percentages.max())
+        
+        # Add padding to the top of the Y-axis
+        y_axis_range = [0, max_y * 1.15] if max_y > 0 else [0, 1]
+        # Set a fixed, scrollable X-axis range as requested
+        x_axis_range = [0, 15]
+        
+        # Define shared histogram binning for consistency
+        histogram_bins = dict(
+            start=0,
+            end=hist_range_max, # Using the same 50 as for y-axis calculation
+            size=hist_range_max / num_bins # e.g., 50 / 200 = 0.25
+        )
+        
+        # 4. Render main chart with shared ranges
         st.subheader("Distribution of Fund Returns (TVPI)")
         fig_tvpi = go.Figure()
-        fig_tvpi.add_trace(go.Histogram(x=results_df['tvpi'], nbinsx=200, name='Distribution', histnorm='percent'))
+        fig_tvpi.add_trace(go.Histogram(x=main_tvpi, xbins=histogram_bins, name='Distribution', histnorm='percent'))
         fig_tvpi.add_vline(x=mean_tvpi, line_width=2, line_dash="dash", line_color="red",
                       annotation_text=f"Mean: {mean_tvpi:.2f}x", annotation_position="top right")
         fig_tvpi.update_layout(
             title="Distribution of Fund Return Multiples (Total Value / Fund Size)",
-            xaxis_title="Fund Return Multiple (TVPI)", yaxis_title="Probability (%)", bargap=0.1
+            xaxis_title="Fund Return Multiple (TVPI)", yaxis_title="Probability (%)", bargap=0.1,
+            xaxis_range=x_axis_range,
+            yaxis_range=y_axis_range
         )
         st.plotly_chart(fig_tvpi, use_container_width=True)
 
-    with tab2:
+        st.markdown("---")
+        st.subheader("TVPI Distribution by Investment Bucket")
+        
+        # 5. Render bucket charts with shared ranges
+        for i_str in sorted_bucket_keys:
+            if i_str not in bucket_tvpis:
+                continue
+
+            bucket = model['buckets'][i_str]
+            bucket_name = bucket.get('name', f'Bucket {i_str}')
+            bucket_tvpi = bucket_tvpis[i_str]
+            mean_bucket_tvpi = bucket_tvpi.mean()
+
+            fig_bucket_tvpi = go.Figure()
+            fig_bucket_tvpi.add_trace(
+                go.Histogram(
+                    x=bucket_tvpi, 
+                    xbins=histogram_bins, 
+                    name='Distribution', 
+                    histnorm='percent',
+                    marker_color='purple'
+                )
+            )
+            fig_bucket_tvpi.add_vline(
+                x=mean_bucket_tvpi, 
+                line_width=2, 
+                line_dash="dash", 
+                line_color="red",
+                annotation_text=f"Mean: {mean_bucket_tvpi:.2f}x", 
+                annotation_position="top right"
+            )
+            fig_bucket_tvpi.update_layout(
+                title=f"TVPI Distribution for '{bucket_name}'",
+                xaxis_title=f"Bucket TVPI Multiple",
+                yaxis_title="Probability (%)",
+                bargap=0.1,
+                xaxis_range=x_axis_range,
+                yaxis_range=y_axis_range
+            )
+            st.plotly_chart(fig_bucket_tvpi, use_container_width=True)
+
+    with tabs[1]: # Gross IRR Distribution
         st.subheader("Distribution of Fund Gross IRR")
         fig_irr = go.Figure()
         # Multiply by 100 for percentage representation
@@ -672,7 +891,7 @@ def display_simulation_results(results_df):
         )
         st.plotly_chart(fig_irr, use_container_width=True)
 
-    with tab3:
+    with tabs[2]: # Net IRR Distribution
         st.subheader("Distribution of Fund Net IRR")
         fig_irr_net = go.Figure()
         # Multiply by 100 for percentage representation
@@ -684,18 +903,67 @@ def display_simulation_results(results_df):
             xaxis_title="Net IRR (%)", yaxis_title="Probability (%)", bargap=0.1
         )
         st.plotly_chart(fig_irr_net, use_container_width=True)
+    
+    if "Fund Size Analysis" in tab_titles:
+        with tabs[3]:
+            create_analysis_tab()
 
 
-    with st.expander("View Raw Simulation Data"):
-        st.dataframe(results_df.style.format({
-            'moic': '{:.2f}x',
-            'tvpi': '{:.2f}x',
-            'gross_irr': '{:.2%}',
-            'net_irr': '{:.2%}',
-            'total_invested': '${:,.2f}M',
-            'total_realized': '${:,.2f}M',
-        }))
+    # with st.expander("View Raw Simulation Data"):
+    #     st.dataframe(results_df.style.format({
+    #         'moic': '{:.2f}x',
+    #         'tvpi': '{:.2f}x',
+    #         'gross_irr': '{:.2%}',
+    #         'net_irr': '{:.2%}',
+    #         'total_invested': '${:,.2f}M',
+    #         'total_realized': '${:,.2f}M',
+    #     }))
 
+
+def create_analysis_tab():
+    st.subheader("Fund Size Sensitivity Analysis")
+    st.info("This analysis shows how key return metrics change based on the total fund size. The point corresponding to your configured fund size uses the high-precision 10k simulation, while other points use a faster 2k simulation.", icon="ℹ️")
+    
+    analysis_df = st.session_state.fund_size_analysis_results
+    base_fund_size = st.session_state.fund_model['fund_size']
+
+    # Chart 1: Mean TVPI vs. Fund Size
+    fig1 = go.Figure()
+    fig1.add_trace(go.Scatter(x=analysis_df['fund_size'], y=analysis_df['mean_tvpi'], mode='lines+markers', name='Mean TVPI'))
+    # Highlight the base fund size
+    base_point = analysis_df[analysis_df['fund_size'] == base_fund_size]
+    if not base_point.empty:
+        fig1.add_trace(go.Scatter(x=base_point['fund_size'], y=base_point['mean_tvpi'], mode='markers', marker=dict(color='red', size=10), name='Your Fund'))
+    fig1.update_layout(
+        title="Mean TVPI vs. Fund Size",
+        xaxis_title="Fund Size ($M)",
+        yaxis_title="Mean TVPI (x)"
+    )
+    st.plotly_chart(fig1, use_container_width=True)
+
+    # Chart 2: P(TVPI > 3x) vs. Fund Size
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(x=analysis_df['fund_size'], y=analysis_df['prob_tvpi_gt_3x'], mode='lines+markers', name='P(TVPI > 3x)'))
+    if not base_point.empty:
+        fig2.add_trace(go.Scatter(x=base_point['fund_size'], y=base_point['prob_tvpi_gt_3x'], mode='markers', marker=dict(color='red', size=10), name='Your Fund'))
+    fig2.update_layout(
+        title="Probability of >3x Return vs. Fund Size",
+        xaxis_title="Fund Size ($M)",
+        yaxis_title="Probability (%)"
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+    
+    # Chart 3: P(TVPI > 5x) vs. Fund Size
+    fig3 = go.Figure()
+    fig3.add_trace(go.Scatter(x=analysis_df['fund_size'], y=analysis_df['prob_tvpi_gt_5x'], mode='lines+markers', name='P(TVPI > 5x)'))
+    if not base_point.empty:
+        fig3.add_trace(go.Scatter(x=base_point['fund_size'], y=base_point['prob_tvpi_gt_5x'], mode='markers', marker=dict(color='red', size=10), name='Your Fund'))
+    fig3.update_layout(
+        title="Probability of >5x Return vs. Fund Size",
+        xaxis_title="Fund Size ($M)",
+        yaxis_title="Probability (%)"
+    )
+    st.plotly_chart(fig3, use_container_width=True)
 
 def validate_model_and_get_warnings(model):
     """
