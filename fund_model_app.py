@@ -6,52 +6,12 @@ import plotly.graph_objects as go
 from scipy.stats import beta
 import json
 from copy import deepcopy
+import os
 
 # Allow larger dataframes to be styled
-pd.set_option("styler.render.max_elements", None)
+pd.set_option("styler.render.max_elements", 1_000_000) # Set a large number instead of None
 
 # --- Main Application Logic ---
-
-def get_default_model():
-    """Returns the default configuration for a new fund model, tailored for an Eastern European market."""
-    return {
-        'fund_size': 30,
-        'follow_on_reserve': 50,
-        'buckets': {
-            '0': {
-                'name': 'Pre-Seed / Seed', 'percentage': 70,
-                'deploy_y1': 70, 'deploy_y2': 30, 'deploy_y3': 0, 'deploy_y4': 0,
-                'avg_ticket': 0.25,
-                'entry_valuation_min': 1.5, 'entry_valuation_max': 4.0,
-                'follow_on_allocation_pct': 70,
-                'follow_on_probability': 60,
-                'follow_on_timing': 1.5,
-                'follow_on_size_pct_of_initial': 200,
-                'follow_on_valuation_multiple': 2.5,
-                'scenarios': [
-                    {'name': 'Failure', 'probability': 70, 'exit_valuation_min': 0.0, 'exit_valuation_max': 0.5, 'exit_year_min': 2, 'exit_year_max': 5, 'exit_dilution_pct': 50},
-                    {'name': 'Base Case', 'probability': 25, 'exit_valuation_min': 5.0, 'exit_valuation_max': 20.0, 'exit_year_min': 4, 'exit_year_max': 8, 'exit_dilution_pct': 30},
-                    {'name': 'Home Run', 'probability': 5, 'exit_valuation_min': 30.0, 'exit_valuation_max': 100.0, 'exit_year_min': 5, 'exit_year_max': 10, 'exit_dilution_pct': 25},
-                ]
-            },
-            '1': {
-                'name': 'Series A', 'percentage': 30,
-                'deploy_y1': 20, 'deploy_y2': 50, 'deploy_y3': 30, 'deploy_y4': 0,
-                'avg_ticket': 1.5,
-                'entry_valuation_min': 8.0, 'entry_valuation_max': 20.0,
-                'follow_on_allocation_pct': 30,
-                'follow_on_probability': 70,
-                'follow_on_timing': 2.0,
-                'follow_on_size_pct_of_initial': 150,
-                'follow_on_valuation_multiple': 2.0,
-                'scenarios': [
-                    {'name': 'Failure', 'probability': 40, 'exit_valuation_min': 0.0, 'exit_valuation_max': 3.0, 'exit_year_min': 3, 'exit_year_max': 6, 'exit_dilution_pct': 40},
-                    {'name': 'Base Case', 'probability': 50, 'exit_valuation_min': 30.0, 'exit_valuation_max': 100.0, 'exit_year_min': 4, 'exit_year_max': 8, 'exit_dilution_pct': 25},
-                    {'name': 'Home Run', 'probability': 10, 'exit_valuation_min': 100.0, 'exit_valuation_max': 400.0, 'exit_year_min': 5, 'exit_year_max': 9, 'exit_dilution_pct': 20},
-                ]
-            }
-        }
-    }
 
 def update_model_value(key_path, widget_key):
     """
@@ -146,6 +106,15 @@ def render_fund_model_ui():
 
     model = st.session_state.fund_model
 
+    st.sidebar.text_input(
+        "Model Display Name",
+        value=model.get('display_name', 'My Custom Model'),
+        key='fm_display_name',
+        on_change=update_model_value,
+        args=(['display_name'], 'fm_display_name'),
+        help="A name for this model, used for display purposes."
+    )
+
     st.sidebar.number_input(
         "Fund Size ($ Millions)", min_value=1,
         value=model.get('fund_size', 100),
@@ -214,13 +183,13 @@ def render_fund_model_ui():
             t_c1, t_c2, t_c3 = st.columns(3)
             
             t_c1.number_input("Average Ticket Size ($M)", min_value=0.1, step=0.1, format="%.1f",
-                value=bucket.get('avg_ticket'), key=f'fm_b_{i_str}_ticket', on_change=update_model_value, args=(['buckets', i_str, 'avg_ticket'], f'fm_b_{i_str}_ticket'))
+                value=float(bucket.get('avg_ticket')), key=f'fm_b_{i_str}_ticket', on_change=update_model_value, args=(['buckets', i_str, 'avg_ticket'], f'fm_b_{i_str}_ticket'))
 
             t_c2.number_input("Min Entry Valuation ($M)", min_value=0.0, step=1.0, format="%.1f",
-                value=bucket.get('entry_valuation_min', 0.0), key=f'fm_b_{i_str}_entry_val_min', on_change=update_model_value, args=(['buckets', i_str, 'entry_valuation_min'], f'fm_b_{i_str}_entry_val_min'))
+                value=float(bucket.get('entry_valuation_min', 0.0)), key=f'fm_b_{i_str}_entry_val_min', on_change=update_model_value, args=(['buckets', i_str, 'entry_valuation_min'], f'fm_b_{i_str}_entry_val_min'))
             
             t_c3.number_input("Max Entry Valuation ($M)", min_value=0.0, step=1.0, format="%.1f",
-                value=bucket.get('entry_valuation_max', 0.0), key=f'fm_b_{i_str}_entry_val_max', on_change=update_model_value, args=(['buckets', i_str, 'entry_valuation_max'], f'fm_b_{i_str}_entry_val_max'))
+                value=float(bucket.get('entry_valuation_max', 0.0)), key=f'fm_b_{i_str}_entry_val_max', on_change=update_model_value, args=(['buckets', i_str, 'entry_valuation_max'], f'fm_b_{i_str}_entry_val_max'))
             
             # Calculated ownership
             avg_ticket = bucket.get('avg_ticket', 0)
@@ -257,7 +226,7 @@ def render_fund_model_ui():
                 on_change=update_model_value, args=(['buckets', i_str, 'follow_on_size_pct_of_initial'], f'fm_b_{i_str}_fosize')
             )
             fo_c4.number_input("Valuation (x Entry)", min_value=1.0, step=0.1, format="%.1f",
-                value=bucket.get('follow_on_valuation_multiple', 2.0),
+                value=float(bucket.get('follow_on_valuation_multiple', 2.0)),
                 key=f'fm_b_{i_str}_foval',
                 on_change=update_model_value, args=(['buckets', i_str, 'follow_on_valuation_multiple'], f'fm_b_{i_str}_foval')
             )
@@ -310,11 +279,11 @@ def render_fund_model_ui():
                         st.markdown("**Exit Valuation ($M)**")
                         ev_c1, ev_c2 = st.columns(2)
                         ev_c1.number_input("Min", min_value=0.0, step=0.1, format="%.1f",
-                            value=scenario.get('exit_valuation_min', 1.0),
+                            value=float(scenario.get('exit_valuation_min', 1.0)),
                             key=f'fm_b_{i_str}_s{s_idx}_ev_min', label_visibility="collapsed", on_change=update_model_value, args=(['buckets', i_str, 'scenarios', s_idx, 'exit_valuation_min'], f'fm_b_{i_str}_s{s_idx}_ev_min')
                         )
                         ev_c2.number_input("Max", min_value=0.0, step=0.1, format="%.1f",
-                            value=scenario.get('exit_valuation_max', 2.0),
+                            value=float(scenario.get('exit_valuation_max', 2.0)),
                             key=f'fm_b_{i_str}_s{s_idx}_ev_max', label_visibility="collapsed", on_change=update_model_value, args=(['buckets', i_str, 'scenarios', s_idx, 'exit_valuation_max'], f'fm_b_{i_str}_s{s_idx}_ev_max')
                         )
                     with r2c2:
@@ -392,12 +361,14 @@ def render_fund_model_ui():
 
             # Calculate and store metrics for this fund size
             mean_tvpi = results_df['tvpi'].mean()
+            mean_moic = results_df['moic'].mean()
             prob_3x = (results_df['tvpi'] >= 3).mean() * 100
             prob_5x = (results_df['tvpi'] >= 5).mean() * 100
             
             analysis_results.append({
                 'fund_size': size,
                 'mean_tvpi': mean_tvpi,
+                'mean_moic': mean_moic,
                 'prob_tvpi_gt_3x': prob_3x,
                 'prob_tvpi_gt_5x': prob_5x
             })
@@ -438,14 +409,19 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
         for i_str, bucket in fund_model['buckets'].items()
     }
     
-    simulation_runs = []
+    all_simulation_runs = []
+    all_portfolios = []
 
-    for _ in range(num_simulations):
+
+    for sim_idx in range(num_simulations):
         cash_flows = np.zeros(FUND_LIFE_YEARS)
         total_invested_cash = 0
         total_realized_value = 0
         realized_value_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
         
+        # --- NEW: Store detailed portfolio info for this run ---
+        portfolio_details = []
+
         # Track spent capital from each sub-pool
         follow_on_capital_spent_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
         initial_capital_invested_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
@@ -473,7 +449,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
                 all_investments.append({'bucket_key': i_str, 'bucket': bucket, 'year': year})
 
         # Process each investment through its lifecycle
-        for investment in all_investments:
+        for investment_idx, investment in enumerate(all_investments):
             bucket_key = investment['bucket_key']
             bucket = investment['bucket']
             investment_year = investment['year']
@@ -498,6 +474,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             # Handle follow-on investment based on bucket-level strategy
             follow_on_investment = 0
             follow_on_ownership_pct = 0
+            did_follow_on = False
             follow_on_prob = bucket.get('follow_on_probability', 0)
 
             if np.random.uniform(0, 100) < follow_on_prob:
@@ -514,6 +491,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
                     
                     # Ensure year is an integer for indexing
                     if int(follow_on_year) < FUND_LIFE_YEARS:
+                        did_follow_on = True
                         follow_on_investment = follow_on_amount
                         follow_on_capital_spent_by_bucket[bucket_key] += follow_on_amount
                         follow_on_investment_count_by_bucket[bucket_key] += 1
@@ -543,7 +521,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
                 chosen_scenario.get('exit_valuation_max', 0.0)
             )
             
-            total_ownership_pct = initial_ownership_pct + follow_on_ownership_pct
+            total_ownership_pct_before_dilution = initial_ownership_pct + follow_on_ownership_pct
             
             # Handle exit and realized value
             time_to_exit = np.random.randint(
@@ -552,15 +530,40 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             )
             exit_year = investment_year + time_to_exit
 
+            realized_value = 0
+            final_ownership_pct = 0
+            status = "Active" # Default status
+
             if exit_year < FUND_LIFE_YEARS:
                 # Apply exit dilution
                 exit_dilution_pct = chosen_scenario.get('exit_dilution_pct', 20)
-                final_ownership_pct = total_ownership_pct * (1 - exit_dilution_pct / 100)
+                final_ownership_pct = total_ownership_pct_before_dilution * (1 - exit_dilution_pct / 100)
                 
                 realized_value = (final_ownership_pct / 100) * exit_valuation
                 realized_value_by_bucket[bucket_key] += realized_value
                 cash_flows[exit_year] += realized_value
                 total_realized_value += realized_value
+                
+                status = "Exited" if exit_valuation > 0 else "Failed"
+
+            # --- NEW: Store detailed company data ---
+            portfolio_details.append({
+                'company_id': f"Company {investment_idx + 1}",
+                'investment_year': investment_year + 1, # Use 1-based indexing for display
+                'stage': bucket.get('name', 'N/A'),
+                'initial_check': avg_ticket,
+                'initial_ownership': initial_ownership_pct,
+                'entry_valuation': entry_valuation,
+                'follow_on': "Yes" if did_follow_on else "No",
+                'follow_on_check': follow_on_investment,
+                'ownership_after_follow_on': total_ownership_pct_before_dilution,
+                'final_ownership_at_exit': final_ownership_pct,
+                'status': status,
+                'exit_year': exit_year + 1 if status != "Active" else None,
+                'exit_valuation': exit_valuation if status != "Active" else None,
+                'net_return': realized_value,
+                'exit_scenario': chosen_scenario.get('name', 'N/A')
+            })
 
         # Calculate metrics for the simulation run
         moic = total_realized_value / total_invested_cash if total_invested_cash > 0 else 0
@@ -631,9 +634,14 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             run_data[f'follow_on_count_b{i_str}'] = follow_on_investment_count_by_bucket[i_str]
             run_data[f'realized_b{i_str}'] = realized_value_by_bucket.get(i_str, 0)
         
-        simulation_runs.append(run_data)
+        all_simulation_runs.append(run_data)
+        all_portfolios.append(portfolio_details)
 
-    return pd.DataFrame(simulation_runs)
+    # --- NEW: Return both simulation results and portfolio details ---
+    results_df = pd.DataFrame(all_simulation_runs)
+    results_df['portfolio_details'] = all_portfolios
+    
+    return results_df
 
 
 def display_simulation_results(results_df):
@@ -644,19 +652,21 @@ def display_simulation_results(results_df):
 
     # --- Metrics ---
     st.subheader("Key Performance Indicators")
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     
     mean_tvpi = results_df['tvpi'].mean()
     median_tvpi = results_df['tvpi'].median()
+    mean_moic = results_df['moic'].mean()
     prob_3x = (results_df['tvpi'] >= 3).mean() * 100
     prob_5x = (results_df['tvpi'] >= 5).mean() * 100
     prob_loss = (results_df['tvpi'] < 1).mean() * 100
 
     col1.metric("Mean TVPI", f"{mean_tvpi:.2f}x")
-    col2.metric("Median TVPI", f"{median_tvpi:.2f}x")
-    col3.metric("P(Loss of Capital)", f"{prob_loss:.1f}%")
-    col4.metric("P(TVPI > 3x)", f"{prob_3x:.1f}%")
-    col5.metric("P(TVPI > 5x)", f"{prob_5x:.1f}%")
+    col2.metric("Mean MOIC", f"{mean_moic:.2f}x")
+    col3.metric("Median TVPI", f"{median_tvpi:.2f}x")
+    col4.metric("P(Loss of Capital)", f"{prob_loss:.1f}%")
+    col5.metric("P(TVPI > 3x)", f"{prob_3x:.1f}%")
+    col6.metric("P(TVPI > 5x)", f"{prob_5x:.1f}%")
 
     # --- IRR Metrics ---
     # Filter out failed IRR calculations for metrics
@@ -771,10 +781,14 @@ def display_simulation_results(results_df):
 
     # --- Charts ---
     # Define tabs
-    tab_titles = ["TVPI Distribution", "Gross IRR Distribution", "Net IRR Distribution"]
+    tab_titles = ["TVPI Distribution", "MOIC Distribution", "Gross IRR Distribution", "Net IRR Distribution"]
     if 'fund_size_analysis_results' in st.session_state:
         tab_titles.append("Fund Size Analysis")
     
+    # --- NEW: Add Example Portfolio Tab if data exists ---
+    if 'portfolio_details' in results_df.columns:
+        tab_titles.append("Example Portfolios")
+
     tabs = st.tabs(tab_titles)
 
     with tabs[0]: # TVPI Distribution
@@ -878,7 +892,80 @@ def display_simulation_results(results_df):
             )
             st.plotly_chart(fig_bucket_tvpi, use_container_width=True)
 
-    with tabs[1]: # Gross IRR Distribution
+    with tabs[1]: # MOIC Distribution
+        st.subheader("Distribution of Investment Returns (MOIC)")
+        
+        # Determine shared ranges for MOIC charts
+        main_moic = results_df['moic']
+        bucket_moics = {}
+        for i_str in sorted_bucket_keys:
+            bucket = model['buckets'][i_str]
+            invested_col_initial = f'initial_invested_b{i_str}'
+            invested_col_follow_on = f'follow_on_invested_b{i_str}'
+            realized_col = f'realized_b{i_str}'
+            
+            if realized_col in results_df.columns:
+                total_invested_in_bucket = results_df[invested_col_initial] + results_df[invested_col_follow_on]
+                bucket_moic = (results_df[realized_col] / total_invested_in_bucket).replace([np.inf, -np.inf], 0).fillna(0)
+                bucket_moics[i_str] = bucket_moic
+        
+        all_moic_series = [main_moic] + list(bucket_moics.values())
+        max_y_moic = 0
+        hist_range_max_moic = 50 
+        num_bins_moic = 200 
+        
+        for series in all_moic_series:
+            clean_series = series.replace([np.inf, -np.inf], np.nan).dropna()
+            if not clean_series.empty:
+                counts, _ = np.histogram(clean_series, bins=num_bins_moic, range=(0, hist_range_max_moic))
+                percentages = (counts / len(clean_series)) * 100 if len(clean_series) > 0 else counts
+                if len(percentages) > 0:
+                    max_y_moic = max(max_y_moic, percentages.max())
+        
+        y_axis_range_moic = [0, max_y_moic * 1.15] if max_y_moic > 0 else [0, 1]
+        x_axis_range_moic = [0, 15]
+
+        histogram_bins_moic = dict(start=0, end=hist_range_max_moic, size=hist_range_max_moic / num_bins_moic)
+
+        # Main MOIC chart
+        mean_moic = main_moic.mean()
+        fig_moic = go.Figure()
+        fig_moic.add_trace(go.Histogram(x=main_moic, xbins=histogram_bins_moic, name='Distribution', histnorm='percent', marker_color='green'))
+        fig_moic.add_vline(x=mean_moic, line_width=2, line_dash="dash", line_color="red",
+                      annotation_text=f"Mean: {mean_moic:.2f}x", annotation_position="top right")
+        fig_moic.update_layout(
+            title="Distribution of Fund Return Multiples (Total Value / Invested Capital)",
+            xaxis_title="Fund Return Multiple (MOIC)", yaxis_title="Probability (%)", bargap=0.1,
+            xaxis_range=x_axis_range_moic,
+            yaxis_range=y_axis_range_moic
+        )
+        st.plotly_chart(fig_moic, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("MOIC Distribution by Investment Bucket")
+
+        # Bucket MOIC charts
+        for i_str in sorted_bucket_keys:
+            if i_str not in bucket_moics:
+                continue
+            bucket_name = model['buckets'][i_str].get('name', f'Bucket {i_str}')
+            bucket_moic = bucket_moics[i_str]
+            mean_bucket_moic = bucket_moic.mean()
+
+            fig_bucket_moic = go.Figure()
+            fig_bucket_moic.add_trace(go.Histogram(x=bucket_moic, xbins=histogram_bins_moic, name='Distribution', histnorm='percent', marker_color='orange'))
+            fig_bucket_moic.add_vline(x=mean_bucket_moic, line_width=2, line_dash="dash", line_color="red",
+                                      annotation_text=f"Mean: {mean_bucket_moic:.2f}x", annotation_position="top right")
+            fig_bucket_moic.update_layout(
+                title=f"MOIC Distribution for '{bucket_name}'",
+                xaxis_title="Bucket MOIC Multiple", yaxis_title="Probability (%)", bargap=0.1,
+                xaxis_range=x_axis_range_moic,
+                yaxis_range=y_axis_range_moic
+            )
+            st.plotly_chart(fig_bucket_moic, use_container_width=True)
+
+
+    with tabs[2]: # Gross IRR Distribution
         st.subheader("Distribution of Fund Gross IRR")
         fig_irr = go.Figure()
         # Multiply by 100 for percentage representation
@@ -891,7 +978,7 @@ def display_simulation_results(results_df):
         )
         st.plotly_chart(fig_irr, use_container_width=True)
 
-    with tabs[2]: # Net IRR Distribution
+    with tabs[3]: # Net IRR Distribution
         st.subheader("Distribution of Fund Net IRR")
         fig_irr_net = go.Figure()
         # Multiply by 100 for percentage representation
@@ -905,8 +992,13 @@ def display_simulation_results(results_df):
         st.plotly_chart(fig_irr_net, use_container_width=True)
     
     if "Fund Size Analysis" in tab_titles:
-        with tabs[3]:
+        with tabs[4]:
             create_analysis_tab()
+    
+    # --- NEW: Logic for Example Portfolio Tab ---
+    if "Example Portfolios" in tab_titles:
+        with tabs[tab_titles.index("Example Portfolios")]:
+            create_example_portfolios_tab(results_df, st.session_state.fund_model)
 
 
     # with st.expander("View Raw Simulation Data"):
@@ -918,6 +1010,191 @@ def display_simulation_results(results_df):
     #         'total_invested': '${:,.2f}M',
     #         'total_realized': '${:,.2f}M',
     #     }))
+
+
+def create_example_portfolios_tab(results_df, fund_model):
+    """
+    Creates a set of tabs to display different example portfolios (e.g., median, upside cases).
+    """
+    st.header("✨ Representative Portfolio Outcomes")
+    st.info(
+        "This section displays several complete portfolios from the simulation. Each portfolio is chosen "
+        "to represent a specific outcome scenario (e.g., median, bull case) based on its TVPI ranking.",
+        icon="ℹ️"
+    )
+
+    percentiles = {
+        "Median Case (50th Percentile)": 0.50,
+        "Upper-Median Case (65th Percentile)": 0.65,
+        "Bull Case (90th Percentile)": 0.90,
+    }
+
+    portfolio_tabs = st.tabs(percentiles.keys())
+
+    for i, (tab_title, percentile) in enumerate(percentiles.items()):
+        with portfolio_tabs[i]:
+            create_single_portfolio_view(results_df, fund_model, percentile, tab_title)
+
+
+def create_single_portfolio_view(results_df, fund_model, percentile, tab_title):
+    """
+    Creates the content for a single example portfolio view based on a given TVPI percentile.
+    """
+    # 1. Find the portfolio closest to the target TVPI percentile
+    target_tvpi = results_df['tvpi'].quantile(percentile)
+    closest_run = results_df.iloc[(results_df['tvpi'] - target_tvpi).abs().argsort()[0]]
+    
+    portfolio_data = closest_run['portfolio_details']
+    
+    if not portfolio_data:
+        st.warning(f"The selected portfolio for the {tab_title} has no investments.")
+        return
+
+    # Convert list of dicts to DataFrame for display
+    portfolio_df = pd.DataFrame(portfolio_data)
+
+    # 2. Display Key Metrics for this specific portfolio
+    st.subheader("Portfolio Performance Metrics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Portfolio TVPI", f"{closest_run['tvpi']:.2f}x", help=f"Target TVPI for this scenario ({percentile:.0%}) was {target_tvpi:.2f}x")
+    col2.metric("Portfolio MOIC", f"{closest_run['moic']:.2f}x")
+    col3.metric("Gross IRR", f"{closest_run['gross_irr']:.1%}")
+    col4.metric("Net IRR", f"{closest_run['net_irr']:.1%}")
+
+    # 3. Display Deployment Summary for this portfolio
+    st.subheader("Deployment Summary")
+    total_deployed = portfolio_df['initial_check'].sum() + portfolio_df['follow_on_check'].sum()
+    total_proceeds = portfolio_df['net_return'].sum()
+    
+    sum_c1, sum_c2 = st.columns(2)
+    sum_c1.metric("Total Capital Deployed", f"${total_deployed:.2f}M")
+    sum_c2.metric("Total Proceeds", f"${total_proceeds:.2f}M")
+
+    with st.expander("Show Deployment Statistics by Bucket for this Portfolio"):
+        # Calculate allocated capital amounts from the model
+        fund_size = fund_model['fund_size']
+        follow_on_reserve_pct = fund_model['follow_on_reserve']
+        management_fee_reserve = fund_size * 0.17
+        investable_capital = fund_size - management_fee_reserve
+        initial_capital_pool = investable_capital * (1 - follow_on_reserve_pct / 100)
+        total_follow_on_pool = investable_capital * (follow_on_reserve_pct / 100)
+        
+        bucket_allocations = []
+        for i_str, bucket in fund_model['buckets'].items():
+            allocated_initial = initial_capital_pool * (bucket.get('percentage', 0) / 100)
+            allocated_follow_on = total_follow_on_pool * (bucket.get('follow_on_allocation_pct', 0) / 100)
+            bucket_allocations.append({
+                'stage': bucket.get('name'),
+                'allocated_initial': allocated_initial,
+                'allocated_follow_on': allocated_follow_on
+            })
+        allocations_df = pd.DataFrame(bucket_allocations)
+
+        # Calculate actual deployed stats from the portfolio
+        bucket_stats_df = portfolio_df.groupby('stage').agg(
+            deployed_initial=('initial_check', 'sum'),
+            count_initial=('company_id', 'size'),
+            deployed_follow_on=('follow_on_check', 'sum'),
+            count_follow_on=('follow_on', lambda x: (x == 'Yes').sum())
+        ).reset_index()
+        
+        # Merge allocated with actual
+        summary_df = pd.merge(allocations_df, bucket_stats_df, on='stage', how='left').fillna(0)
+        
+        for _, row in summary_df.iterrows():
+            st.markdown(f"##### Bucket: {row['stage']}")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("**Initial Investments**")
+                st.metric(
+                    "Capital Deployed (vs. Allocated)",
+                    f"${row['deployed_initial']:.2f}M / ${row['allocated_initial']:.2f}M"
+                )
+                st.metric("Number of Investments", f"{int(row['count_initial'])}")
+            with c2:
+                st.markdown("**Follow-on Investments**")
+                st.metric(
+                    "Capital Deployed (vs. Allocated)",
+                    f"${row['deployed_follow_on']:.2f}M / ${row['allocated_follow_on']:.2f}M"
+                )
+                st.metric("Number of Investments", f"{int(row['count_follow_on'])}")
+            st.markdown("---")
+
+    # 4. Display Exit Distribution Chart
+    st.subheader("Exit Distribution")
+    exited_df = portfolio_df[portfolio_df['status'].isin(['Exited', 'Failed'])].copy()
+
+    scenario_map = {
+        "Failure": "0", "$10M Exit": "10M", "$50M Exit": "50M",
+        "$100M Exit": "100M", "$500M Exit": "500M", "$1B+ Exit": "1B",
+        "Base Case": "Base", "Home Run": "Home Run" # For strategic buckets
+    }
+    ordered_scenarios = list(scenario_map.keys())
+    
+    exited_df['exit_category'] = pd.Categorical(
+        exited_df['exit_scenario'],
+        categories=ordered_scenarios,
+        ordered=True
+    )
+    exit_counts = exited_df['exit_category'].value_counts().sort_index()
+    
+    chart_data = pd.DataFrame({
+        'scenario': exit_counts.index,
+        'count': exit_counts.values
+    })
+    chart_data['label'] = chart_data['scenario'].map(scenario_map)
+    
+    if not chart_data.empty:
+        fig = go.Figure(data=[
+            go.Bar(
+                x=chart_data['label'], 
+                y=chart_data['count'],
+                text=chart_data['count'],
+                textposition='inside',
+                marker_color='royalblue',
+                textfont=dict(color='white', size=14, family='Arial, sans-serif')
+            )
+        ])
+        fig.update_layout(
+            title_text='Distribution of Company Outcomes by Exit Scenario',
+            xaxis_title="Exit Valuation Estimate",
+            yaxis_title="Number of Companies",
+            yaxis=dict(range=[0, chart_data['count'].max() * 1.15])
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No companies have exited in this portfolio yet.")
+
+    # 5. Display Portfolio Company Table
+    st.subheader("Company Investment Details")
+    
+    # Reorder columns for logical presentation
+    display_columns = [
+        'company_id', 'investment_year', 'stage', 'status', 
+        'initial_check', 'initial_ownership',
+        'follow_on', 'follow_on_check', 'ownership_after_follow_on', 
+        'final_ownership_at_exit', 'exit_year', 'exit_valuation', 'net_return'
+    ]
+    portfolio_df = portfolio_df[display_columns]
+
+    # Format the DataFrame for better readability and hide the index
+    styler = portfolio_df.style.format({
+            'initial_check': "${:,.2f}M",
+            'initial_ownership': "{:.2f}%",
+            'entry_valuation': "${:,.1f}M",
+            'follow_on_check': "${:,.2f}M",
+            'ownership_after_follow_on': "{:.2f}%",
+            'final_ownership_at_exit': "{:.2f}%",
+            'exit_valuation': "${:,.1f}M",
+            'net_return': "${:,.2f}M",
+        }).set_properties(**{'text-align': 'left'}) \
+          .set_table_styles([dict(selector='th', props=[('text-align', 'left')])]) \
+          .hide(axis="index")
+
+    # Calculate dynamic height: 35px per row + 35px for the header
+    table_height = (len(portfolio_df) + 1) * 35
+    st.dataframe(styler, height=table_height)
 
 
 def create_analysis_tab():
@@ -934,10 +1211,12 @@ def create_analysis_tab():
     base_point = analysis_df[analysis_df['fund_size'] == base_fund_size]
     if not base_point.empty:
         fig1.add_trace(go.Scatter(x=base_point['fund_size'], y=base_point['mean_tvpi'], mode='markers', marker=dict(color='red', size=10), name='Your Fund'))
+    fig1.add_hline(y=1, line_width=2, line_dash="dash", line_color="red")
     fig1.update_layout(
         title="Mean TVPI vs. Fund Size",
         xaxis_title="Fund Size ($M)",
-        yaxis_title="Mean TVPI (x)"
+        yaxis_title="Mean TVPI (x)",
+        yaxis_range=[0, None]
     )
     st.plotly_chart(fig1, use_container_width=True)
 
@@ -949,7 +1228,8 @@ def create_analysis_tab():
     fig2.update_layout(
         title="Probability of >3x Return vs. Fund Size",
         xaxis_title="Fund Size ($M)",
-        yaxis_title="Probability (%)"
+        yaxis_title="Probability (%)",
+        yaxis_range=[0, None]
     )
     st.plotly_chart(fig2, use_container_width=True)
     
@@ -961,9 +1241,24 @@ def create_analysis_tab():
     fig3.update_layout(
         title="Probability of >5x Return vs. Fund Size",
         xaxis_title="Fund Size ($M)",
-        yaxis_title="Probability (%)"
+        yaxis_title="Probability (%)",
+        yaxis_range=[0, None]
     )
     st.plotly_chart(fig3, use_container_width=True)
+
+    # Chart 4: Mean MOIC vs. Fund Size
+    fig4 = go.Figure()
+    fig4.add_trace(go.Scatter(x=analysis_df['fund_size'], y=analysis_df['mean_moic'], mode='lines+markers', name='Mean MOIC'))
+    if not base_point.empty:
+        fig4.add_trace(go.Scatter(x=base_point['fund_size'], y=base_point['mean_moic'], mode='markers', marker=dict(color='red', size=10), name='Your Fund'))
+    fig4.add_hline(y=1, line_width=2, line_dash="dash", line_color="red")
+    fig4.update_layout(
+        title="Mean MOIC vs. Fund Size",
+        xaxis_title="Fund Size ($M)",
+        yaxis_title="Mean MOIC (x)",
+        yaxis_range=[0, None]
+    )
+    st.plotly_chart(fig4, use_container_width=True)
 
 def validate_model_and_get_warnings(model):
     """
@@ -995,10 +1290,26 @@ def validate_model_and_get_warnings(model):
             
         # Check exit scenario probability total
         prob_sum = sum(s.get('probability', 0) for s in bucket.get('scenarios', []))
-        if prob_sum != 100:
+        if not np.isclose(prob_sum, 100):
             warnings.append(f"In '{bucket_name}', the exit scenario probabilities sum to {prob_sum}%, but should be 100%.")
             
     return warnings
+
+
+def load_predefined_models():
+    """Loads fund model configurations from the 'models' directory."""
+    models = []
+    models_dir = "models"
+    if os.path.isdir(models_dir):
+        for filename in os.listdir(models_dir):
+            if filename.endswith(".json"):
+                filepath = os.path.join(models_dir, filename)
+                try:
+                    with open(filepath, 'r') as f:
+                        models.append(json.load(f))
+                except Exception as e:
+                    st.error(f"Error loading model {filename}: {e}")
+    return models
 
 
 def render_fund_model():
@@ -1010,15 +1321,49 @@ def render_fund_model():
 
     if 'fund_model' not in st.session_state:
         st.info("Choose an option to begin.")
-        
-        if st.button("Start with a New Model", type="primary"):
-            st.session_state.fund_model = get_default_model()
-            st.rerun()
 
+        # --- Predefined Models ---
+        st.subheader("Start from a Predefined Model")
+        predefined_models = load_predefined_models()
+
+        if not predefined_models:
+            st.warning("No predefined models found in the 'models' directory.")
+        else:
+            # Inject custom CSS to style the model cards
+            st.markdown("""
+                <style>
+                    div[data-testid="stVerticalBlockBorderWrapper"] {
+                        background-color: #FFF3E0;
+                        border-radius: 0.5rem;
+                    }
+                </style>
+                """, unsafe_allow_html=True)
+
+            # Create a more robust and visually appealing card layout
+            num_models = len(predefined_models)
+            # Use a max of 3 columns for a clean grid layout
+            cols = st.columns(min(num_models, 3))
+            for i, model_data in enumerate(predefined_models):
+                with cols[i % min(num_models, 3)]:
+                    with st.container(border=True):
+                        st.subheader(f"📄 {model_data.get('display_name', 'Unnamed Model')}")
+                        st.markdown("---") # Visual separator
+
+                        # Display key metrics
+                        c1, c2 = st.columns(2)
+                        c1.metric(label="Fund Size", value=f"${model_data.get('fund_size', 'N/A')}M")
+                        c2.metric(label="Buckets", value=len(model_data.get('buckets', {})))
+
+                        st.markdown("<br>", unsafe_allow_html=True) # Spacer
+
+                        if st.button("Select This Model", key=f"select_model_{i}", use_container_width=True, type="secondary"):
+                            st.session_state.fund_model = model_data
+                            st.rerun()
+        
         st.markdown("---")
         
         uploaded_file = st.file_uploader(
-            "Load Model from JSON File",
+            "Or Load Your Own Model from a JSON File",
             type=['json']
         )
         if uploaded_file is not None:
