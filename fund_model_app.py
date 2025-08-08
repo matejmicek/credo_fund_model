@@ -87,9 +87,82 @@ def remove_bucket(bucket_key):
     if 'simulation_results' in st.session_state:
         del st.session_state.simulation_results
 
+def apply_exit_model_probabilities():
+    """
+    Applies the probabilities from the Exit Probability Model to the current fund model.
+    """
+    if 'exit_model_probabilities' not in st.session_state:
+        st.error("No probabilities from the Exit Model found.")
+        return
+
+    model = st.session_state.fund_model
+    exit_probs = st.session_state['exit_model_probabilities']
+
+    bucket_mapping = {
+        "Pre-Seed Entry": "Pre-Seed",
+        "Seed Entry": "Seed",
+        "Large Pre-seed": "Large Pre-seed" 
+    }
+
+    for prob_name, bucket_name in bucket_mapping.items():
+        # Find the bucket in the fund model that matches the name
+        target_bucket_key = None
+        for key, bucket_data in model.get('buckets', {}).items():
+            if bucket_data.get('name') == bucket_name:
+                target_bucket_key = key
+                break
+        
+        if target_bucket_key:
+            # Create new scenarios based on the exit model probabilities
+            new_scenarios = []
+            for exit_cat, prob in exit_probs[prob_name].items():
+                if prob > 0:
+                    val_str = exit_cat.split(' ')[0]
+                    if val_str == '0':
+                        min_val, max_val = 0, 0
+                    elif 'M' in val_str:
+                        min_val = max_val = float(val_str.replace('M', ''))
+                    elif 'B' in val_str:
+                        min_val = max_val = float(val_str.replace('B', '')) * 1000
+                    else: # Fallback for unexpected format
+                        min_val, max_val = 0, 0
+                    
+                    new_scenarios.append({
+                        'name': f'Exit at {exit_cat}',
+                        'probability': prob * 100,
+                        'exit_valuation_min': min_val,
+                        'exit_valuation_max': max_val,
+                        'exit_year_min': 5, 'exit_year_max': 8, # Default values
+                        'exit_dilution_pct': 20 # Default value
+                    })
+            
+            # Replace the old scenarios with the new ones
+            model['buckets'][target_bucket_key]['scenarios'] = new_scenarios
+            st.success(f"Applied new exit probabilities to the '{bucket_name}' bucket.")
+
+    # Invalidate simulation results
+    if 'simulation_results' in st.session_state:
+        del st.session_state.simulation_results
+
+
 def render_fund_model_ui():
     """Renders the main UI once the model data is loaded into session state."""
-    st.title("🔮 Probabilistic VC Fund Model")
+    model = st.session_state.fund_model
+    st.title(f"🔮 {model.get('display_name', 'Probabilistic VC Fund Model')}")
+    st.text_area(
+        "Model Description",
+        value=model.get('description', ''),
+        key='fm_description',
+        on_change=update_model_value,
+        args=(['description'], 'fm_description'),
+        help="A brief description of this fund model's strategy or purpose.",
+        placeholder="e.g., A balanced fund targeting early-stage B2B SaaS companies with a focus on strong product-market fit."
+    )
+    # --- Integration with Exit Probability Model ---
+    if 'exit_model_probabilities' in st.session_state:
+        st.info("New exit probabilities from the Exit Probability Model are available.")
+        if st.button("Apply to Current Fund Model", key="apply_exit_probs"):
+            apply_exit_model_probabilities()
 
     # --- Sidebar for Global Fund Configuration ---
     st.sidebar.header("Global Fund Configuration")
@@ -104,8 +177,6 @@ def render_fund_model_ui():
     
     st.sidebar.divider()
 
-    model = st.session_state.fund_model
-
     st.sidebar.text_input(
         "Model Display Name",
         value=model.get('display_name', 'My Custom Model'),
@@ -114,7 +185,6 @@ def render_fund_model_ui():
         args=(['display_name'], 'fm_display_name'),
         help="A name for this model, used for display purposes."
     )
-
     st.sidebar.number_input(
         "Fund Size ($ Millions)", min_value=1,
         value=model.get('fund_size', 100),
@@ -1317,7 +1387,6 @@ def render_fund_model():
     Acts as the entry point for the VC Fund Model page.
     It handles the initial choice of starting fresh or loading a file.
     """
-    st.title("VC Fund Model Setup")
 
     if 'fund_model' not in st.session_state:
         st.info("Choose an option to begin.")
@@ -1381,4 +1450,4 @@ def render_fund_model():
             del st.session_state.fund_model
             if 'simulation_results' in st.session_state:
                 del st.session_state.simulation_results
-            st.rerun() 
+            st.rerun()

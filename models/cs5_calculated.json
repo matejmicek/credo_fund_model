@@ -1,0 +1,367 @@
+{
+  "fund_size": 70,
+  "follow_on_reserve": 30,
+  "buckets": {
+    "1": {
+      "name": "Exploratory Checks",
+      "percentage": 3,
+      "deploy_y1": 25,
+      "deploy_y2": 25,
+      "deploy_y3": 25,
+      "deploy_y4": 25,
+      "avg_ticket": 0.2,
+      "entry_valuation_min": 4.0,
+      "entry_valuation_max": 8.0,
+      "follow_on_allocation_pct": 7,
+      "follow_on_probability": 10,
+      "follow_on_timing": 1.5,
+      "follow_on_size_pct_of_initial": 1000,
+      "follow_on_valuation_multiple": 3.000000000000001,
+      "scenarios": [
+        {
+          "name": "Failure",
+          "probability": 73.4,
+          "reasoning": "Adjusted to ensure the sum of probabilities is 100%. This is the remainder after accounting for all successful exit scenarios.",
+          "exit_valuation_min": 0.0,
+          "exit_valuation_max": 0.0,
+          "exit_year_min": 3,
+          "exit_year_max": 6,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$10M Exit",
+          "probability": 9.1,
+          "reasoning": "Half the probability of a standard Pre-Seed company. Calculation: ((33% Pre-Seed * 20% exit) + (33% Seed * 20% exit) + (33% Series A * 15% exit)) / 2 = 9.1%.",
+          "exit_valuation_min": 8.0,
+          "exit_valuation_max": 12.0,
+          "exit_year_min": 4,
+          "exit_year_max": 7,
+          "exit_dilution_pct": 30
+        },
+        {
+          "name": "$50M Exit",
+          "probability": 9.1,
+          "reasoning": "Half the probability of a standard Pre-Seed company. Calculation: ((33% Pre-Seed * 0% exit) + (33% Seed * 20% exit) + (33% Series A * 35% exit)) / 2 = 9.1%.",
+          "exit_valuation_min": 40.0,
+          "exit_valuation_max": 60.0,
+          "exit_year_min": 5,
+          "exit_year_max": 8,
+          "exit_dilution_pct": 35
+        },
+        {
+          "name": "$100M Exit",
+          "probability": 5.0,
+          "reasoning": "Half the probability of a standard Pre-Seed company. Calculation: ((33% Pre-Seed * 0% exit) + (33% Seed * 10% exit) + (33% Series A * 20% exit)) / 2 = 5.0%.",
+          "exit_valuation_min": 80.0,
+          "exit_valuation_max": 120.0,
+          "exit_year_min": 6,
+          "exit_year_max": 9,
+          "exit_dilution_pct": 40
+        },
+        {
+          "name": "$500M Exit",
+          "probability": 1.7,
+          "reasoning": "Half the probability of a standard Pre-Seed company. Calculation: ((33% Pre-Seed * 0% exit) + (33% Seed * 0% exit) + (33% Series A * 10% exit)) / 2 = 1.7%.",
+          "exit_valuation_min": 400.0,
+          "exit_valuation_max": 600.0,
+          "exit_year_min": 7,
+          "exit_year_max": 11,
+          "exit_dilution_pct": 45
+        },
+        {
+          "name": "$1B+ Exit",
+          "probability": 1.7,
+          "reasoning": "Half the probability of a standard Pre-Seed company. Calculation: ((33% Pre-Seed * 0% exit) + (33% Seed * 0% exit) + (33% Series A * 10% exit)) / 2 = 1.7%.",
+          "exit_valuation_min": 800.0,
+          "exit_valuation_max": 1200.0,
+          "exit_year_min": 8,
+          "exit_year_max": 12,
+          "exit_dilution_pct": 50
+        }
+      ]
+    },
+    "2": {
+      "name": "Small Pre-Seed",
+      "percentage": 40,
+      "deploy_y1": 25,
+      "deploy_y2": 25,
+      "deploy_y3": 25,
+      "deploy_y4": 25,
+      "avg_ticket": 1.2,
+      "entry_valuation_min": 8.0,
+      "entry_valuation_max": 12.0,
+      "follow_on_allocation_pct": 40,
+      "follow_on_probability": 80,
+      "follow_on_timing": 2.0,
+      "follow_on_size_pct_of_initial": 50,
+      "follow_on_valuation_multiple": 2.0,
+      "scenarios": [
+        {
+          "name": "Failure",
+          "probability": 47.1,
+          "reasoning": "Adjusted to ensure the sum of probabilities is 100%. This is the remainder after accounting for all successful exit scenarios.",
+          "exit_valuation_min": 0.0,
+          "exit_valuation_max": 0.0,
+          "exit_year_min": 4,
+          "exit_year_max": 7,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$10M Exit",
+          "probability": 18.2,
+          "reasoning": "Weighted probability for a $10M exit. Calculation: (33% Pre-Seed * 20% exit) + (33% Seed * 20% exit) + (33% Series A * 15% exit) = 18.2%.",
+          "exit_valuation_min": 8.0,
+          "exit_valuation_max": 12.0,
+          "exit_year_min": 5,
+          "exit_year_max": 8,
+          "exit_dilution_pct": 30
+        },
+        {
+          "name": "$50M Exit",
+          "probability": 18.2,
+          "reasoning": "Weighted probability for a $50M exit. Calculation: (33% Pre-Seed * 0% exit) + (33% Seed * 20% exit) + (33% Series A * 35% exit) = 18.2%.",
+          "exit_valuation_min": 40.0,
+          "exit_valuation_max": 60.0,
+          "exit_year_min": 6,
+          "exit_year_max": 9,
+          "exit_dilution_pct": 35
+        },
+        {
+          "name": "$100M Exit",
+          "probability": 9.9,
+          "reasoning": "Weighted probability for a $100M exit. Calculation: (33% Pre-Seed * 0% exit) + (33% Seed * 10% exit) + (33% Series A * 20% exit) = 9.9%.",
+          "exit_valuation_min": 80.0,
+          "exit_valuation_max": 120.0,
+          "exit_year_min": 7,
+          "exit_year_max": 10,
+          "exit_dilution_pct": 40
+        },
+        {
+          "name": "$500M Exit",
+          "probability": 3.3,
+          "reasoning": "Weighted probability for a $500M exit. Calculation: (33% Pre-Seed * 0% exit) + (33% Seed * 0% exit) + (33% Series A * 10% exit) = 3.3%.",
+          "exit_valuation_min": 400.0,
+          "exit_valuation_max": 600.0,
+          "exit_year_min": 8,
+          "exit_year_max": 12,
+          "exit_dilution_pct": 45
+        },
+        {
+          "name": "$1B+ Exit",
+          "probability": 3.3,
+          "reasoning": "Weighted probability for a $1B+ exit. Calculation: (33% Pre-Seed * 0% exit) + (33% Seed * 0% exit) + (33% Series A * 10% exit) = 3.3%.",
+          "exit_valuation_min": 800.0,
+          "exit_valuation_max": 1200.0,
+          "exit_year_min": 9,
+          "exit_year_max": 13,
+          "exit_dilution_pct": 50
+        }
+      ]
+    },
+    "3": {
+      "name": "Large Pre-Seed",
+      "percentage": 30,
+      "deploy_y1": 25,
+      "deploy_y2": 25,
+      "deploy_y3": 25,
+      "deploy_y4": 25,
+      "avg_ticket": 2.5,
+      "entry_valuation_min": 20.0,
+      "entry_valuation_max": 25.0,
+      "follow_on_allocation_pct": 30,
+      "follow_on_probability": 80,
+      "follow_on_timing": 2.0,
+      "follow_on_size_pct_of_initial": 50,
+      "follow_on_valuation_multiple": 2.0,
+      "scenarios": [
+        {
+          "name": "Failure",
+          "probability": 31.3,
+          "reasoning": "Adjusted to ensure the sum of probabilities is 100%. This is the remainder after accounting for all successful exit scenarios.",
+          "exit_valuation_min": 0.0,
+          "exit_valuation_max": 0.0,
+          "exit_year_min": 4,
+          "exit_year_max": 7,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$10M Exit",
+          "probability": 23.6,
+          "reasoning": "Probability increased by 30%. Calculation: ((33% Pre-Seed * 20% exit) + (33% Seed * 20% exit) + (33% Series A * 15% exit)) * 1.3 = 23.6%.",
+          "exit_valuation_min": 8.0,
+          "exit_valuation_max": 12.0,
+          "exit_year_min": 5,
+          "exit_year_max": 8,
+          "exit_dilution_pct": 25
+        },
+        {
+          "name": "$50M Exit",
+          "probability": 23.6,
+          "reasoning": "Probability increased by 30%. Calculation: ((33% Pre-Seed * 0% exit) + (33% Seed * 20% exit) + (33% Series A * 35% exit)) * 1.3 = 23.6%.",
+          "exit_valuation_min": 40.0,
+          "exit_valuation_max": 60.0,
+          "exit_year_min": 6,
+          "exit_year_max": 9,
+          "exit_dilution_pct": 30
+        },
+        {
+          "name": "$100M Exit",
+          "probability": 12.9,
+          "reasoning": "Probability increased by 30%. Calculation: ((33% Pre-Seed * 0% exit) + (33% Seed * 10% exit) + (33% Series A * 20% exit)) * 1.3 = 12.9%.",
+          "exit_valuation_min": 80.0,
+          "exit_valuation_max": 120.0,
+          "exit_year_min": 7,
+          "exit_year_max": 10,
+          "exit_dilution_pct": 35
+        },
+        {
+          "name": "$500M Exit",
+          "probability": 4.3,
+          "reasoning": "Probability increased by 30%. Calculation: ((33% Pre-Seed * 0% exit) + (33% Seed * 0% exit) + (33% Series A * 10% exit)) * 1.3 = 4.3%.",
+          "exit_valuation_min": 400.0,
+          "exit_valuation_max": 600.0,
+          "exit_year_min": 8,
+          "exit_year_max": 12,
+          "exit_dilution_pct": 40
+        },
+        {
+          "name": "$1B+ Exit",
+          "probability": 4.3,
+          "reasoning": "Probability increased by 30%. Calculation: ((33% Pre-Seed * 0% exit) + (33% Seed * 0% exit) + (33% Series A * 10% exit)) * 1.3 = 4.3%.",
+          "exit_valuation_min": 800.0,
+          "exit_valuation_max": 1200.0,
+          "exit_year_min": 9,
+          "exit_year_max": 13,
+          "exit_dilution_pct": 45
+        }
+      ]
+    },
+    "4": {
+      "name": "Seed",
+      "percentage": 20,
+      "deploy_y1": 25,
+      "deploy_y2": 25,
+      "deploy_y3": 25,
+      "deploy_y4": 25,
+      "avg_ticket": 3.0,
+      "entry_valuation_min": 20.0,
+      "entry_valuation_max": 40.0,
+      "follow_on_allocation_pct": 12,
+      "follow_on_probability": 50,
+      "follow_on_timing": 2.0,
+      "follow_on_size_pct_of_initial": 50,
+      "follow_on_valuation_multiple": 2.0,
+      "scenarios": [
+        {
+          "name": "Failure",
+          "probability": 27.3,
+          "reasoning": "Adjusted to ensure the sum of probabilities is 100%. This is the remainder after accounting for all successful exit scenarios.",
+          "exit_valuation_min": 0.0,
+          "exit_valuation_max": 0.0,
+          "exit_year_min": 3,
+          "exit_year_max": 6,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$10M Exit",
+          "probability": 16.3,
+          "reasoning": "Weighted probability for a $10M exit. Calculation: (50% Seed * 20% exit) + (25% Series A * 15% exit) + (25% Series B * 10% exit) = 16.3%.",
+          "exit_valuation_min": 8.0,
+          "exit_valuation_max": 12.0,
+          "exit_year_min": 4,
+          "exit_year_max": 7,
+          "exit_dilution_pct": 25
+        },
+        {
+          "name": "$50M Exit",
+          "probability": 26.3,
+          "reasoning": "Weighted probability for a $50M exit. Calculation: (50% Seed * 20% exit) + (25% Series A * 35% exit) + (25% Series B * 30% exit) = 26.3%.",
+          "exit_valuation_min": 40.0,
+          "exit_valuation_max": 60.0,
+          "exit_year_min": 5,
+          "exit_year_max": 8,
+          "exit_dilution_pct": 30
+        },
+        {
+          "name": "$100M Exit",
+          "probability": 17.5,
+          "reasoning": "Weighted probability for a $100M exit. Calculation: (50% Seed * 10% exit) + (25% Series A * 20% exit) + (25% Series B * 30% exit) = 17.5%.",
+          "exit_valuation_min": 80.0,
+          "exit_valuation_max": 120.0,
+          "exit_year_min": 6,
+          "exit_year_max": 9,
+          "exit_dilution_pct": 35
+        },
+        {
+          "name": "$500M Exit",
+          "probability": 6.3,
+          "reasoning": "Weighted probability for a $500M exit. Calculation: (50% Seed * 0% exit) + (25% Series A * 10% exit) + (25% Series B * 15% exit) = 6.3%.",
+          "exit_valuation_min": 400.0,
+          "exit_valuation_max": 600.0,
+          "exit_year_min": 7,
+          "exit_year_max": 11,
+          "exit_dilution_pct": 40
+        },
+        {
+          "name": "$1B+ Exit",
+          "probability": 6.3,
+          "reasoning": "Weighted probability for a $1B+ exit. Calculation: (50% Seed * 0% exit) + (25% Series A * 10% exit) + (25% Series B * 15% exit) = 6.3%.",
+          "exit_valuation_min": 800.0,
+          "exit_valuation_max": 1200.0,
+          "exit_year_min": 8,
+          "exit_year_max": 12,
+          "exit_dilution_pct": 45
+        }
+      ]
+    },
+    "5": {
+      "name": "Streategic",
+      "percentage": 7,
+      "deploy_y1": 25,
+      "deploy_y2": 25,
+      "deploy_y3": 25,
+      "deploy_y4": 25,
+      "avg_ticket": 1.5,
+      "entry_valuation_min": 50.0,
+      "entry_valuation_max": 100.0,
+      "follow_on_allocation_pct": 11,
+      "follow_on_probability": 50,
+      "follow_on_timing": 2.0,
+      "follow_on_size_pct_of_initial": 100,
+      "follow_on_valuation_multiple": 2.0,
+      "scenarios": [
+        {
+          "name": "Failure",
+          "probability": 30.0,
+          "exit_valuation_min": 0.0,
+          "exit_valuation_max": 0.0,
+          "exit_year_min": 5,
+          "exit_year_max": 8,
+          "reasoning": "",
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$500M Exit",
+          "probability": 65.0,
+          "exit_valuation_min": 200.0,
+          "exit_valuation_max": 500.0,
+          "exit_year_min": 4,
+          "exit_year_max": 5,
+          "reasoning": "",
+          "exit_dilution_pct": 40
+        },
+        {
+          "name": "$10B+ Exitn",
+          "probability": 5.0,
+          "exit_valuation_min": 5000.0,
+          "exit_valuation_max": 15000.0,
+          "exit_year_min": 7,
+          "exit_year_max": 11,
+          "reasoning": "",
+          "exit_dilution_pct": 50
+        }
+      ]
+    }
+  },
+  "display_name": "CS5 calculated"
+}

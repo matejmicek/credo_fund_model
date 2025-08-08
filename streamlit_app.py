@@ -10,18 +10,20 @@ from analysis_utils import (
     analyze_round_size_vs_graduation, analyze_round_size_vs_achievement, analyze_time_to_next_round
 )
 from fund_model_app import render_fund_model
+from exit_model_app import render_exit_model
 
 st.set_page_config(layout="wide")
-st.title("🎓 Unified Startup Analysis")
+
 
 # --- App Navigation ---
 st.sidebar.title("App Navigation")
 app_mode = st.sidebar.radio(
     "Choose a section to explore",
-    ["Startup Analysis", "VC Fund Model"]
+    ["Startup Analysis", "VC Fund Model", "Exit Probability Model"]
 )
 
 if app_mode == "Startup Analysis":
+    st.title("🎓 Unified Startup Analysis")
     # --- Data Loading (with Caching) ---
     @st.cache_data
     def load_data(filepath: str) -> pd.DataFrame:
@@ -345,4 +347,6 @@ if app_mode == "Startup Analysis":
         st.plotly_chart(fig_achieve_by_size, use_container_width=True) 
 
 elif app_mode == "VC Fund Model":
-    render_fund_model() 
+    render_fund_model()
+elif app_mode == "Exit Probability Model":
+    render_exit_model() 
