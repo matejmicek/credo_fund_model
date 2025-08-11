@@ -16,11 +16,40 @@ st.set_page_config(layout="wide")
 
 
 # --- App Navigation ---
-st.sidebar.title("App Navigation")
-app_mode = st.sidebar.radio(
-    "Choose a section to explore",
-    ["Startup Analysis", "VC Fund Model", "Exit Probability Model"]
-)
+def _get_param(name: str, default: str ="") -> str:
+    try:
+        qp = st.query_params
+        v = qp.get(name)
+        if isinstance(v, list):
+            return v[0] if v else default
+        return v if v is not None else default
+    except Exception:
+        try:
+            vlist = st.experimental_get_query_params().get(name, [])
+            return vlist[0] if vlist else default
+        except Exception:
+            return default
+
+forced_lp_mode = _get_param('view') == 'lp'
+if forced_lp_mode:
+    # Early hide of sidebar to avoid flicker
+    st.markdown(
+        """
+        <style>
+        div[data-testid='stSidebar'], #MainMenu, footer { display: none !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+if not forced_lp_mode:
+    st.sidebar.title("App Navigation")
+    app_mode = st.sidebar.radio(
+        "Choose a section to explore",
+        ["Startup Analysis", "VC Fund Model", "Exit Probability Model"]
+    )
+else:
+    # Force VC Fund Model when LP deep link is used
+    app_mode = "VC Fund Model"
 
 if app_mode == "Startup Analysis":
     st.title("🎓 Unified Startup Analysis")
