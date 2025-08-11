@@ -7,6 +7,7 @@ from scipy.stats import beta
 import json
 from copy import deepcopy
 import os
+import math
 
 # Allow larger dataframes to be styled
 pd.set_option("styler.render.max_elements", 1_000_000) # Set a large number instead of None
@@ -16,17 +17,52 @@ pd.set_option("styler.render.max_elements", 1_000_000) # Set a large number inst
 def update_model_value(key_path, widget_key):
     """
     Generic callback to update a value in the nested fund_model dictionary.
-    key_path is a list of keys to navigate the dictionary.
+    key_path is a list of keys to navigate the dictionary. Missing containers are created on the fly.
     """
-    target = st.session_state.fund_model
-    for key in key_path[:-1]:
-        target = target[key]
-    
-    # For sliders that return a tuple (min, max), we need to handle them differently
-    if isinstance(st.session_state[widget_key], tuple) and len(key_path[-1]) == 2:
-        target[key_path[-1][0]], target[key_path[-1][1]] = st.session_state[widget_key]
+    model = st.session_state.fund_model
+
+    # Walk down the path and create intermediate containers as needed
+    target = model
+    for depth, key in enumerate(key_path[:-1]):
+        next_key = key_path[depth + 1]
+
+        if isinstance(target, dict):
+            if key not in target:
+                # Create appropriate container based on the next key type
+                target[key] = [] if isinstance(next_key, int) else {}
+            target = target[key]
+        elif isinstance(target, list):
+            # Ensure list is long enough
+            if not isinstance(key, int):
+                raise KeyError(f"Expected list index at depth {depth}, got {key!r}")
+            while len(target) <= key:
+                target.append({})
+            target = target[key]
+        else:
+            # Unexpected structure; reset to dict to avoid crashing
+            replacement = [] if isinstance(next_key, int) else {}
+            target = replacement
+
+    # Set the final value
+    new_value = st.session_state[widget_key]
+
+    # Handle dual-key slider case (expects last component to be [key_min, key_max])
+    if isinstance(new_value, tuple) and len(key_path[-1]) == 2:
+        last_min_key, last_max_key = key_path[-1]
+        if isinstance(target, dict):
+            target[last_min_key], target[last_max_key] = new_value
+        else:
+            raise KeyError("Cannot set tuple value on non-dict target")
     else:
-        target[key_path[-1]] = st.session_state[widget_key]
+        last_key = key_path[-1]
+        if isinstance(target, dict):
+            target[last_key] = new_value
+        elif isinstance(target, list) and isinstance(last_key, int):
+            while len(target) <= last_key:
+                target.append(None)
+            target[last_key] = new_value
+        else:
+            raise KeyError("Invalid target structure for final assignment")
 
     # After any model change, invalidate the previous simulation results
     if 'simulation_results' in st.session_state:
@@ -71,6 +107,19 @@ def add_bucket():
         'follow_on_timing': 2.0,
         'follow_on_size_pct_of_initial': 200,
         'follow_on_valuation_multiple': 2.0,
+        'follow_on_dilution_pct': 15,
+        # New: multiple follow-on strategies (default one pre-populated)
+        'follow_on_strategies': [
+            {
+                'name': 'Default',
+                'probability': 50,
+                'timing': 2.0,
+                'size_pct_of_initial': 200,
+                'valuation_multiple': 2.0,
+                'dilution_pct': 15,
+                'success_odds_factor': 1.0,
+            }
+        ],
         'scenarios': [
             {'name': 'Default Scenario', 'probability': 100, 'exit_valuation_min': 10.0, 'exit_valuation_max': 20.0, 'exit_year_min': 5, 'exit_year_max': 8, 'exit_dilution_pct': 20},
         ]
@@ -84,6 +133,33 @@ def remove_bucket(bucket_key):
     model = st.session_state.fund_model
     if bucket_key in model.get('buckets', {}):
         del model['buckets'][bucket_key]
+    if 'simulation_results' in st.session_state:
+        del st.session_state.simulation_results
+
+
+def add_follow_on_strategy(bucket_key):
+    """Add a new follow-on strategy to a bucket."""
+    model = st.session_state.fund_model
+    strategies = model['buckets'][bucket_key].setdefault('follow_on_strategies', [])
+    strategies.append({
+        'name': f"Strategy {len(strategies)+1}",
+        'probability': 10.0,
+        'timing': 2.0,
+        'size_pct_of_initial': 100,
+        'valuation_multiple': 2.0,
+        'dilution_pct': 15.0,
+        'success_odds_factor': 1.0,
+    })
+    if 'simulation_results' in st.session_state:
+        del st.session_state.simulation_results
+
+
+def remove_follow_on_strategy(bucket_key, strategy_index):
+    """Remove a follow-on strategy from a bucket."""
+    model = st.session_state.fund_model
+    strategies = model['buckets'][bucket_key].get('follow_on_strategies', [])
+    if 0 <= strategy_index < len(strategies):
+        del strategies[strategy_index]
     if 'simulation_results' in st.session_state:
         del st.session_state.simulation_results
 
@@ -202,6 +278,46 @@ def render_fund_model_ui():
         help="Percentage of the fund set aside for follow-on investments."
     )
     
+    # --- Sidebar: Allocation Summary (progress bars) ---
+    try:
+        fund_size_sb = float(model.get('fund_size', 0))
+        follow_on_reserve_pct_sb = float(model.get('follow_on_reserve', 0))
+        management_fee_reserve_sb = fund_size_sb * 0.17
+        investable_capital_sb = fund_size_sb - management_fee_reserve_sb
+        initial_capital_pool_sb = investable_capital_sb * (1 - follow_on_reserve_pct_sb / 100.0)
+        follow_on_pool_sb = investable_capital_sb * (follow_on_reserve_pct_sb / 100.0)
+
+        # Bucket coverage (how much of each pool is allocated across buckets)
+        total_init_bucket_pct = sum(float(b.get('percentage', 0)) for b in model.get('buckets', {}).values())
+        total_follow_bucket_pct = sum(float(b.get('follow_on_allocation_pct', 0)) for b in model.get('buckets', {}).values())
+
+        init_alloc_ratio = max(0.0, min(1.0, total_init_bucket_pct / 100.0))
+        fo_alloc_ratio = max(0.0, min(1.0, total_follow_bucket_pct / 100.0))
+
+        st.sidebar.subheader("Allocation Summary")
+
+        # Pure percentage labels (always render even if >100%)
+        init_text = f"Initial allocation: {total_init_bucket_pct:.0f}%"
+        fo_text = f"Follow-on allocation: {total_follow_bucket_pct:.0f}%"
+
+        try:
+            st.sidebar.progress(init_alloc_ratio, text=init_text)
+        except TypeError:
+            st.sidebar.progress(init_alloc_ratio)
+            st.sidebar.caption(init_text)
+
+        try:
+            st.sidebar.progress(fo_alloc_ratio, text=fo_text)
+        except TypeError:
+            st.sidebar.progress(fo_alloc_ratio)
+            st.sidebar.caption(fo_text)
+
+        if total_init_bucket_pct > 100 or total_follow_bucket_pct > 100:
+            st.sidebar.warning("Bucket allocations exceed 100%. Please rebalance.")
+    except Exception:
+        # Fail silently in sidebar summary if any field is temporarily invalid
+        pass
+    
     # --- Main Panel for Bucket Configuration ---
     st.header("Investment Bucket Configuration")
     st.button("Add New Bucket", on_click=add_bucket, use_container_width=True)
@@ -277,42 +393,83 @@ def render_fund_model_ui():
             st.info(f"Based on a \\${absolute_initial_for_bucket:.2f}M allocation and \\${avg_ticket:.2f}M average ticket, you can make roughly {expected_initial_investments:.1f} initial investments.")
 
             st.markdown("---")
-            st.subheader("Follow-on Strategy")
+            st.subheader("Follow-on Strategies")
+            st.caption("Configure one or more mutually exclusive follow-on strategies. The sum of their probabilities should not exceed 100%.")
 
-            fo_c1, fo_c2, fo_c3, fo_c4 = st.columns(4)
-            fo_c1.number_input("Follow-on Prob. (%)", 0, 100,
-                value=bucket.get('follow_on_probability', 50),
-                key=f'fm_b_{i_str}_foprob', help="Probability of a follow-on round for any investment in this bucket.",
-                on_change=update_model_value, args=(['buckets', i_str, 'follow_on_probability'], f'fm_b_{i_str}_foprob')
-            )
-            fo_c2.number_input("Timing (Yrs after initial)", min_value=0.0, step=0.5, format="%.1f",
-                value=float(bucket.get('follow_on_timing', 2.0)),
-                key=f'fm_b_{i_str}_fotime',
-                on_change=update_model_value, args=(['buckets', i_str, 'follow_on_timing'], f'fm_b_{i_str}_fotime')
-            )
-            fo_c3.number_input("Size (% of Initial)", min_value=0, step=10,
-                value=bucket.get('follow_on_size_pct_of_initial', 200),
-                key=f'fm_b_{i_str}_fosize',
-                on_change=update_model_value, args=(['buckets', i_str, 'follow_on_size_pct_of_initial'], f'fm_b_{i_str}_fosize')
-            )
-            fo_c4.number_input("Valuation (x Entry)", min_value=1.0, step=0.1, format="%.1f",
-                value=float(bucket.get('follow_on_valuation_multiple', 2.0)),
-                key=f'fm_b_{i_str}_foval',
-                on_change=update_model_value, args=(['buckets', i_str, 'follow_on_valuation_multiple'], f'fm_b_{i_str}_foval')
-            )
+            # Render strategies
+            strategies = bucket.get('follow_on_strategies', [])
+            # Backwards compatibility: if no strategies present, create a legacy-equivalent one on the fly
+            if not strategies:
+                strategies = [{
+                    'name': 'Legacy',
+                    'probability': float(bucket.get('follow_on_probability', 0.0)),
+                    'timing': float(bucket.get('follow_on_timing', 2.0)),
+                    'size_pct_of_initial': float(bucket.get('follow_on_size_pct_of_initial', 0.0)),
+                    'valuation_multiple': float(bucket.get('follow_on_valuation_multiple', 2.0)),
+                    'dilution_pct': float(bucket.get('follow_on_dilution_pct', 15.0)),
+                }]
+            total_strategy_prob = sum(float(s.get('probability', 0)) for s in strategies)
+            if total_strategy_prob > 100 + 1e-6:
+                st.warning(f"Follow-on strategies sum to {total_strategy_prob:.1f}%, which exceeds 100%.")
+
+            for s_idx, strat in enumerate(strategies):
+                with st.container():
+                    sc1, sc2, sc3, sc4, sc5, sc6, sc7 = st.columns([2, 2, 2, 2, 2, 2, 1])
+                    with sc1:
+                        st.text_input("Name", value=strat.get('name', f'Strategy {s_idx+1}'),
+                                      key=f'fm_b_{i_str}_fo_{s_idx}_name', label_visibility="collapsed",
+                                      on_change=update_model_value, args=(['buckets', i_str, 'follow_on_strategies', s_idx, 'name'], f'fm_b_{i_str}_fo_{s_idx}_name'))
+                    with sc2:
+                        st.number_input("Probability (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.1f",
+                                        value=float(strat.get('probability', 0.0)), key=f'fm_b_{i_str}_fo_{s_idx}_prob',
+                                        on_change=update_model_value, args=(['buckets', i_str, 'follow_on_strategies', s_idx, 'probability'], f'fm_b_{i_str}_fo_{s_idx}_prob'))
+                    with sc3:
+                        st.number_input("Timing (yrs)", min_value=0.0, step=0.5, format="%.1f",
+                                        value=float(strat.get('timing', 2.0)), key=f'fm_b_{i_str}_fo_{s_idx}_timing',
+                                        on_change=update_model_value, args=(['buckets', i_str, 'follow_on_strategies', s_idx, 'timing'], f'fm_b_{i_str}_fo_{s_idx}_timing'))
+                    with sc4:
+                        st.number_input("Size (% init)", min_value=0, step=10,
+                                        value=int(strat.get('size_pct_of_initial', 100)), key=f'fm_b_{i_str}_fo_{s_idx}_size',
+                                        on_change=update_model_value, args=(['buckets', i_str, 'follow_on_strategies', s_idx, 'size_pct_of_initial'], f'fm_b_{i_str}_fo_{s_idx}_size'))
+                    with sc5:
+                        st.number_input("Valuation (x entry)", min_value=1.0, step=0.1, format="%.1f",
+                                        value=float(strat.get('valuation_multiple', 2.0)), key=f'fm_b_{i_str}_fo_{s_idx}_val',
+                                        on_change=update_model_value, args=(['buckets', i_str, 'follow_on_strategies', s_idx, 'valuation_multiple'], f'fm_b_{i_str}_fo_{s_idx}_val'))
+                    with sc6:
+                        st.number_input("Dilution (%)", min_value=0.0, max_value=100.0, step=1.0, format="%.0f",
+                                        value=float(strat.get('dilution_pct', 15.0)), key=f'fm_b_{i_str}_fo_{s_idx}_dil',
+                                        on_change=update_model_value, args=(['buckets', i_str, 'follow_on_strategies', s_idx, 'dilution_pct'], f'fm_b_{i_str}_fo_{s_idx}_dil'))
+                    with sc7:
+                        st.number_input("Success Odds Factor", min_value=0.1, max_value=10.0, step=0.1, format="%.1f",
+                                        value=float(strat.get('success_odds_factor', 1.0)), key=f'fm_b_{i_str}_fo_{s_idx}_sof',
+                                        on_change=update_model_value, args=(['buckets', i_str, 'follow_on_strategies', s_idx, 'success_odds_factor'], f'fm_b_{i_str}_fo_{s_idx}_sof'))
+
+                    st.button("🗑️ Remove", key=f'remove_fo_{i_str}_{s_idx}', use_container_width=False,
+                              on_click=remove_follow_on_strategy, args=(i_str, s_idx))
+
+                if s_idx < len(strategies) - 1:
+                    st.markdown("---")
+
+            st.button("Add Follow-on Strategy", key=f'add_fo_{i_str}', on_click=add_follow_on_strategy, args=(i_str,), use_container_width=True)
 
             # --- Dynamic Follow-on Calculation ---
             avg_ticket = bucket.get('avg_ticket', 0)
-            follow_on_prob_pct = bucket.get('follow_on_probability', 50)
-            follow_on_size_pct = bucket.get('follow_on_size_pct_of_initial', 200)
+            strategies = bucket.get('follow_on_strategies', [])
+            # Weighted expected follow-ons and capital need across strategies
+            follow_on_prob_pct = sum(float(s.get('probability', 0.0)) for s in strategies)
+            # For capital need, sum across strategies: expected deals * each strategy's avg ticket
+            # Expected follow-on investments counts are based on total probability
             percentage_follow_on = bucket.get('follow_on_allocation_pct', 0)
             
             absolute_initial_for_bucket = initial_capital_pool * (bucket.get('percentage', 0) / 100)
             expected_initial_investments = (absolute_initial_for_bucket / avg_ticket) if avg_ticket > 0 else 0
 
             expected_follow_on_investments = expected_initial_investments * (follow_on_prob_pct / 100)
-            avg_follow_on_ticket = avg_ticket * (follow_on_size_pct / 100)
-            needed_follow_on_capital = expected_follow_on_investments * avg_follow_on_ticket
+            needed_follow_on_capital = 0.0
+            for s in strategies:
+                s_prob = float(s.get('probability', 0.0)) / 100.0
+                s_size_pct = float(s.get('size_pct_of_initial', 0.0)) / 100.0
+                needed_follow_on_capital += expected_initial_investments * s_prob * (avg_ticket * s_size_pct)
             
             allocated_follow_on = total_follow_on_pool * (percentage_follow_on / 100)
 
@@ -396,22 +553,35 @@ def render_fund_model_ui():
         st.info("Please resolve the configuration warnings before running the simulation.")
 
     if st.button("Run Monte Carlo Simulation", type="primary", disabled=run_disabled):
-        with st.spinner("Running main simulation (10,000 iterations)... This might take a moment."):
-            main_results_df = run_monte_carlo_simulation(st.session_state.fund_model, 10000)
+        # --- Main simulation progress ---
+        main_status_text = st.empty()
+        main_progress_bar = st.progress(0)
+        
+        def _update_main_progress(ratio: float):
+            # Clamp and render
+            r = max(0.0, min(1.0, float(ratio)))
+            try:
+                main_progress_bar.progress(r, text=f"Main simulation: {int(r*100)}%")
+            except TypeError:
+                main_progress_bar.progress(r)
+                main_status_text.text(f"Main simulation: {int(r*100)}%")
+
+        with st.spinner("Running main simulation (3,000 iterations)... This might take a moment."):
+            main_results_df = run_monte_carlo_simulation(st.session_state.fund_model, 3000, progress_cb=_update_main_progress)
             st.session_state.simulation_results = main_results_df
+        # Clear main progress UI
+        main_progress_bar.empty()
+        main_status_text.empty()
 
         # --- Fund Size Sensitivity Analysis ---
         analysis_results = []
         base_fund_size = st.session_state.fund_model['fund_size']
         
-        min_size = base_fund_size - 20
-        max_size = base_fund_size + 50
-        step = 5
-        # Ensure min size is positive
-        fund_sizes_to_test = list(range(max(step, min_size), max_size + 1, step))
-        if base_fund_size not in fund_sizes_to_test:
-            fund_sizes_to_test.append(base_fund_size)
-            fund_sizes_to_test.sort()
+        # Sensitivity deltas: -10, 0, +10, +20, +30 (in $M)
+        deltas = list(range(-10, 31, 10))
+        fund_sizes_to_test = sorted(set([
+            s for s in (base_fund_size + np.array(deltas)).tolist() if s > 0
+        ]))
 
         status_text = st.empty()
         progress_bar = st.progress(0)
@@ -427,7 +597,7 @@ def render_fund_model_ui():
                 # Run lower-precision simulation for other sizes
                 model_copy = deepcopy(st.session_state.fund_model)
                 model_copy['fund_size'] = size
-                results_df = run_monte_carlo_simulation(model_copy, 2000)
+                results_df = run_monte_carlo_simulation(model_copy, 500)
 
             # Calculate and store metrics for this fund size
             mean_tvpi = results_df['tvpi'].mean()
@@ -445,20 +615,28 @@ def render_fund_model_ui():
             
             progress_bar.progress((i + 1) / num_sizes)
         
-        status_text.text("Analysis complete!")
+            status_text.text("Analysis complete!")
         st.session_state.fund_size_analysis_results = pd.DataFrame(analysis_results)
         progress_bar.empty()
         status_text.empty()
     
     if 'simulation_results' in st.session_state:
         display_simulation_results(st.session_state.simulation_results)
+        # Display aggregated runtime warnings once (avoid per-iteration slow I/O)
+        warnings_list = st.session_state.get('simulation_runtime_warnings', [])
+        if warnings_list:
+            with st.expander("⚠️ Runtime Notes from Simulation", expanded=False):
+                for w in warnings_list:
+                    st.warning(w)
 
 
-def run_monte_carlo_simulation(fund_model, num_simulations=10000):
+def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=None):
     """
     Runs the Monte Carlo simulation for the VC fund model, including cash flow analysis for IRR.
+    If provided, progress_cb is called with a float in [0,1] indicating completion progress.
     """
     FUND_LIFE_YEARS = 20  # Fund life for cash flow analysis
+    FUND_LIFE_MONTHS = FUND_LIFE_YEARS * 12
 
     fund_size = fund_model['fund_size']
     follow_on_reserve_pct = fund_model['follow_on_reserve']
@@ -482,9 +660,13 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
     all_simulation_runs = []
     all_portfolios = []
 
+    # Throttled runtime warning counters (avoid Streamlit I/O in hot loop)
+    adjusted_success_odds_count = 0
+    softened_strategy_rates_count = 0
+
 
     for sim_idx in range(num_simulations):
-        cash_flows = np.zeros(FUND_LIFE_YEARS)
+        cash_flows = np.zeros(FUND_LIFE_MONTHS)
         total_invested_cash = 0
         total_realized_value = 0
         realized_value_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
@@ -498,7 +680,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
         initial_investment_count_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
         follow_on_investment_count_by_bucket = {i_str: 0 for i_str in fund_model['buckets']}
 
-        # Create a list of all initial investments with their deployment years
+        # Create a list of all initial investments with their deployment months
         all_investments = []
         for i_str, bucket in fund_model['buckets'].items():
             bucket_capital = initial_capital_pool * (bucket['percentage'] / 100)
@@ -516,13 +698,17 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
 
             investment_years = np.random.choice([0, 1, 2, 3], size=num_investments, p=deploy_probs)
             for year in investment_years:
-                all_investments.append({'bucket_key': i_str, 'bucket': bucket, 'year': year})
+                # Random month within the selected deployment year
+                month_offset = np.random.randint(0, 12)
+                invest_month = year * 12 + month_offset
+                all_investments.append({'bucket_key': i_str, 'bucket': bucket, 'invest_month': invest_month, 'invest_year': year})
 
         # Process each investment through its lifecycle
         for investment_idx, investment in enumerate(all_investments):
             bucket_key = investment['bucket_key']
             bucket = investment['bucket']
-            investment_year = investment['year']
+            invest_month = investment['invest_month']
+            investment_year = investment['invest_year']
             avg_ticket = bucket.get('avg_ticket', 0)
 
             # Sample entry valuation for this specific investment
@@ -535,44 +721,62 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             initial_investment_count_by_bucket[bucket_key] += 1
 
             # Initial investment cash flow
-            cash_flows[investment_year] -= avg_ticket
+            cash_flows[invest_month] -= avg_ticket
             total_invested_cash += avg_ticket
 
             # --- Ownership and Return Calculation ---
             initial_ownership_pct = (avg_ticket / entry_valuation * 100) if entry_valuation > 0 else 0
-            
-            # Handle follow-on investment based on bucket-level strategy
-            follow_on_investment = 0
-            follow_on_ownership_pct = 0
-            did_follow_on = False
-            follow_on_prob = bucket.get('follow_on_probability', 0)
 
-            if np.random.uniform(0, 100) < follow_on_prob:
+            # Handle follow-on investment using mutually exclusive strategies
+            follow_on_investment = 0.0
+            follow_on_ownership_delta_pct = 0.0
+            did_follow_on = False
+            chosen_strategy = None
+
+            strategies = bucket.get('follow_on_strategies', [])
+            # Draw a uniform and pick a strategy if any triggers; ensure at most one
+            rand = np.random.uniform(0, 100)
+            cumulative = 0.0
+            for s in strategies:
+                cumulative += float(s.get('probability', 0.0))
+                if rand < cumulative:
+                    chosen_strategy = s
+                    break
+
+            if chosen_strategy is not None:
                 # Check against the specific bucket's follow-on pool
                 follow_on_pool_for_bucket = follow_on_sub_pools.get(bucket_key, 0)
                 spent_from_pool = follow_on_capital_spent_by_bucket.get(bucket_key, 0)
-                
-                follow_on_size_pct = bucket.get('follow_on_size_pct_of_initial', 0)
-                follow_on_amount = avg_ticket * (follow_on_size_pct / 100)
+
+                follow_on_size_pct = float(chosen_strategy.get('size_pct_of_initial', 0.0))
+                follow_on_amount = avg_ticket * (follow_on_size_pct / 100.0)
 
                 if spent_from_pool + follow_on_amount <= follow_on_pool_for_bucket:
-                    follow_on_timing = bucket.get('follow_on_timing', 2.0)
-                    follow_on_year = investment_year + follow_on_timing
-                    
-                    # Ensure year is an integer for indexing
-                    if int(follow_on_year) < FUND_LIFE_YEARS:
+                    follow_on_timing = float(chosen_strategy.get('timing', 2.0))
+                    # Use ceiling to avoid placing the cash flow earlier than intended
+                    follow_on_months = math.ceil(follow_on_timing * 12.0)
+                    follow_on_month_index = min(FUND_LIFE_MONTHS - 1, invest_month + follow_on_months)
+
+                    # Ensure month is within bounds for indexing
+                    if follow_on_month_index < FUND_LIFE_MONTHS:
                         did_follow_on = True
                         follow_on_investment = follow_on_amount
                         follow_on_capital_spent_by_bucket[bucket_key] += follow_on_amount
                         follow_on_investment_count_by_bucket[bucket_key] += 1
-                        cash_flows[int(follow_on_year)] -= follow_on_investment
+                        cash_flows[follow_on_month_index] -= follow_on_investment
                         total_invested_cash += follow_on_investment
-                        
-                        # Calculate ownership from follow-on
-                        follow_on_val_multiple = bucket.get('follow_on_valuation_multiple', 1.0)
+
+                        # Apply follow-on dilution to initial ownership, then add new ownership from follow-on
+                        follow_on_val_multiple = float(chosen_strategy.get('valuation_multiple', bucket.get('follow_on_valuation_multiple', 2.0)))
                         follow_on_valuation = entry_valuation * follow_on_val_multiple
+                        follow_on_dilution_pct = float(chosen_strategy.get('dilution_pct', bucket.get('follow_on_dilution_pct', 15)))
+                        diluted_initial_ownership_pct = initial_ownership_pct * (1 - follow_on_dilution_pct / 100.0)
                         if follow_on_valuation > 0:
-                            follow_on_ownership_pct = (follow_on_investment / follow_on_valuation * 100)
+                            new_follow_on_ownership_pct = (follow_on_investment / follow_on_valuation * 100.0)
+                        else:
+                            new_follow_on_ownership_pct = 0.0
+                        # Ownership delta relative to pre-follow-on initial
+                        follow_on_ownership_delta_pct = (diluted_initial_ownership_pct + new_follow_on_ownership_pct) - initial_ownership_pct
 
             # Determine outcome
             scenarios = bucket.get('scenarios', [])
@@ -582,7 +786,96 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             if probs.sum() == 0: continue
             probs /= probs.sum()
 
-            chosen_scenario_index = np.random.choice(len(scenarios), p=probs)
+            # Compute base success/failure split from scenarios
+            success_indices = [idx for idx, s in enumerate(scenarios) if (s.get('exit_valuation_max', 0) or 0) > 0]
+            failure_indices = [idx for idx in range(len(scenarios)) if idx not in success_indices]
+            base_success_prob = probs[success_indices].sum() if success_indices else 0.0
+            base_failure_prob = 1.0 - base_success_prob
+
+            # Normalize compositions within success and failure groups
+            success_comp = probs[success_indices] / base_success_prob if base_success_prob > 0 else np.array([])
+            failure_comp = probs[failure_indices] / base_failure_prob if base_failure_prob > 0 else np.array([])
+
+            # Determine strategy weights (groups): chosen strategy probability mass and residual no-follow
+            strategies_for_success = bucket.get('follow_on_strategies', [])
+            if not strategies_for_success:
+                strategies_for_success = [{
+                    'name': 'Legacy',
+                    'probability': float(bucket.get('follow_on_probability', 0.0)),
+                    'timing': float(bucket.get('follow_on_timing', 2.0)),
+                    'size_pct_of_initial': float(bucket.get('follow_on_size_pct_of_initial', 0.0)),
+                    'valuation_multiple': float(bucket.get('follow_on_valuation_multiple', 2.0)),
+                    'dilution_pct': float(bucket.get('follow_on_dilution_pct', 15.0)),
+                    'success_odds_factor': 1.0,
+                }]
+            w_strats = np.array([float(s.get('probability', 0.0)) for s in strategies_for_success]) / 100.0
+            w_strats_sum = w_strats.sum()
+            w_no = max(0.0, 1.0 - w_strats_sum)
+
+            # Compute strategy success rates via odds scaling
+            def odds(p):
+                return p / (1 - p) if 0 < p < 1 else (np.inf if p >= 1 else 0.0)
+
+            def prob_from_odds(o):
+                return o / (1 + o) if o != np.inf else 1.0
+
+            base_odds = odds(base_success_prob)
+            strat_success_rates = []
+            for s in strategies_for_success:
+                factor = float(s.get('success_odds_factor', 1.0))
+                o_g = base_odds * factor
+                strat_success_rates.append(prob_from_odds(o_g))
+            strat_success_rates = np.array(strat_success_rates)
+
+            # Solve for no-follow success rate so that blended equals base_success_prob
+            blended_strat_success = (w_strats * strat_success_rates).sum()
+            s_no = None
+            if w_no > 1e-9:
+                s_no = (base_success_prob - blended_strat_success) / w_no
+                # Clamp and warn if needed
+                if s_no < 0 or s_no > 1:
+                    s_no = min(max(s_no, 0.0), 1.0)
+                    adjusted_success_odds_count += 1
+            else:
+                # No residual mass; reblend strategies to match base_success_prob by softening odds
+                total_possible = blended_strat_success
+                if not np.isclose(total_possible, base_success_prob):
+                    # Scale toward base by linear interpolation in probability space
+                    alpha = 0.0
+                    if total_possible > 0:
+                        alpha = min(1.0, base_success_prob / total_possible)
+                    strat_success_rates = strat_success_rates * alpha + base_success_prob * (1 - alpha)
+                    softened_strategy_rates_count += 1
+
+            # Determine the active group's success rate for this company
+            # Apply strategy odds boost only if a follow-on actually occurred
+            if did_follow_on and chosen_strategy is not None:
+                # Find its index in strategies_for_success by name match fallback to first match
+                chosen_idx = 0
+                for idx, s in enumerate(strategies_for_success):
+                    if s is chosen_strategy:
+                        chosen_idx = idx
+                        break
+                chosen_success_prob = float(strat_success_rates[chosen_idx]) if len(strat_success_rates) > 0 else base_success_prob
+            else:
+                chosen_success_prob = float(s_no if s_no is not None else base_success_prob)
+
+            # Draw success/failure, then sample within that group by preserved composition
+            is_success = np.random.uniform(0, 1) < chosen_success_prob
+            if is_success and success_indices:
+                pick = np.random.choice(len(success_indices), p=success_comp)
+                chosen_scenario_index = success_indices[pick]
+            else:
+                # failure
+                if failure_indices:
+                    if len(failure_indices) == 1:
+                        chosen_scenario_index = failure_indices[0]
+                    else:
+                        pick = np.random.choice(len(failure_indices), p=failure_comp)
+                        chosen_scenario_index = failure_indices[pick]
+                else:
+                    # Edge case: no explicit failure scenario; fall back to base sampling
+                    chosen_scenario_index = np.random.choice(len(scenarios), p=probs)
             chosen_scenario = scenarios[chosen_scenario_index]
 
             # Determine exit valuation
@@ -590,28 +883,38 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
                 chosen_scenario.get('exit_valuation_min', 0.0),
                 chosen_scenario.get('exit_valuation_max', 0.0)
             )
+            # Scenario exit dilution (used whether or not exit occurs within fund life for recording)
+            scenario_exit_dilution_pct = chosen_scenario.get('exit_dilution_pct', 20)
             
-            total_ownership_pct_before_dilution = initial_ownership_pct + follow_on_ownership_pct
+            # Ownership before exit (post follow-on mechanics if any)
+            # Apply dilution from the follow-on round even if the fund could not participate due to pool constraints.
+            if did_follow_on:
+                ownership_before_exit_pct = initial_ownership_pct + follow_on_ownership_delta_pct
+            elif chosen_strategy is not None:
+                # Round occurred but we didn't participate
+                chosen_follow_on_dilution_pct = float(chosen_strategy.get('dilution_pct', bucket.get('follow_on_dilution_pct', 15)))
+                ownership_before_exit_pct = initial_ownership_pct * (1 - chosen_follow_on_dilution_pct / 100.0)
+            else:
+                ownership_before_exit_pct = initial_ownership_pct
             
             # Handle exit and realized value
-            time_to_exit = np.random.randint(
-                chosen_scenario.get('exit_year_min', 5), 
-                chosen_scenario.get('exit_year_max', 8) + 1
+            time_to_exit_months = np.random.randint(
+                chosen_scenario.get('exit_year_min', 5) * 12, 
+                chosen_scenario.get('exit_year_max', 8) * 12 + 1
             )
-            exit_year = investment_year + time_to_exit
+            exit_month = invest_month + time_to_exit_months
 
             realized_value = 0
             final_ownership_pct = 0
             status = "Active" # Default status
 
-            if exit_year < FUND_LIFE_YEARS:
+            if exit_month < FUND_LIFE_MONTHS:
                 # Apply exit dilution
-                exit_dilution_pct = chosen_scenario.get('exit_dilution_pct', 20)
-                final_ownership_pct = total_ownership_pct_before_dilution * (1 - exit_dilution_pct / 100)
+                final_ownership_pct = ownership_before_exit_pct * (1 - scenario_exit_dilution_pct / 100)
                 
                 realized_value = (final_ownership_pct / 100) * exit_valuation
                 realized_value_by_bucket[bucket_key] += realized_value
-                cash_flows[exit_year] += realized_value
+                cash_flows[exit_month] += realized_value
                 total_realized_value += realized_value
                 
                 status = "Exited" if exit_valuation > 0 else "Failed"
@@ -619,20 +922,24 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
             # --- NEW: Store detailed company data ---
             portfolio_details.append({
                 'company_id': f"Company {investment_idx + 1}",
-                'investment_year': investment_year + 1, # Use 1-based indexing for display
+                'investment_year': (invest_month // 12) + 1, # 1-based year for display
                 'stage': bucket.get('name', 'N/A'),
                 'initial_check': avg_ticket,
                 'initial_ownership': initial_ownership_pct,
                 'entry_valuation': entry_valuation,
                 'follow_on': "Yes" if did_follow_on else "No",
                 'follow_on_check': follow_on_investment,
-                'ownership_after_follow_on': total_ownership_pct_before_dilution,
+                'ownership_after_follow_on': ownership_before_exit_pct,
+                'follow_on_dilution_pct': (float(chosen_strategy.get('dilution_pct')) if (chosen_strategy is not None) else bucket.get('follow_on_dilution_pct', 15)),
+                'ownership_after_follow_on_dilution': ((initial_ownership_pct * (1 - float(chosen_strategy.get('dilution_pct', 15)) / 100.0)) if (chosen_strategy is not None) else initial_ownership_pct),
+                'ownership_from_follow_on': ((follow_on_investment / (entry_valuation * float(chosen_strategy.get('valuation_multiple', 2.0))) * 100.0) if (did_follow_on and chosen_strategy is not None and entry_valuation * float(chosen_strategy.get('valuation_multiple', 2.0)) > 0) else 0.0),
                 'final_ownership_at_exit': final_ownership_pct,
                 'status': status,
-                'exit_year': exit_year + 1 if status != "Active" else None,
+                'exit_year': ((exit_month // 12) + 1) if status != "Active" else None,
                 'exit_valuation': exit_valuation if status != "Active" else None,
                 'net_return': realized_value,
-                'exit_scenario': chosen_scenario.get('name', 'N/A')
+                'exit_scenario': chosen_scenario.get('name', 'N/A'),
+                'exit_dilution_pct': (scenario_exit_dilution_pct if status != "Active" else None)
             })
 
         # Calculate metrics for the simulation run
@@ -644,53 +951,55 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
         net_irr = np.nan
         
         try:
-            # 1. Calculate Gross IRR (based on fund's direct cash flows)
-            gross_irr = npf.irr(cash_flows)
+            # 1. Calculate Gross IRR (monthly), then annualize for reporting
+            gross_irr_monthly = npf.irr(cash_flows)
+            gross_irr = (1 + gross_irr_monthly) ** 12 - 1 if not np.isnan(gross_irr_monthly) else np.nan
 
-            # 2. Calculate Net IRR (from LP's perspective with fees and carry)
-            lp_net_cash_flows = np.zeros(FUND_LIFE_YEARS)
+            # 2. Calculate Net IRR (from LP's perspective with fees and carry), monthly then annualize
+            lp_net_cash_flows = np.zeros(FUND_LIFE_MONTHS)
             total_contributions = 0
             lp_capital_returned = 0
             annual_fee = fund_size * 0.02 # 2% management fee
             total_fees_paid = 0.0
             max_total_fees = fund_size * 0.17 # Cap at 17%
 
-            for year in range(FUND_LIFE_YEARS):
+            for month in range(FUND_LIFE_MONTHS):
                 # Outflows for LP: Investments + Fees
-                investment_in_year = cash_flows[year] if cash_flows[year] < 0 else 0
+                investment_in_month = cash_flows[month] if cash_flows[month] < 0 else 0
                 
-                fee_in_year = 0.0
-                if year < 10 and total_fees_paid < max_total_fees:
-                    fee_to_charge = min(annual_fee, max_total_fees - total_fees_paid)
-                    fee_in_year = -fee_to_charge
+                fee_in_month = 0.0
+                if month < 10 * 12 and total_fees_paid < max_total_fees:
+                    fee_to_charge = min(annual_fee / 12.0, max_total_fees - total_fees_paid)
+                    fee_in_month = -fee_to_charge
                     total_fees_paid += fee_to_charge
                 
-                lp_outflow = investment_in_year + fee_in_year
-                lp_net_cash_flows[year] += lp_outflow
+                lp_outflow = investment_in_month + fee_in_month
+                lp_net_cash_flows[month] += lp_outflow
                 total_contributions += -lp_outflow
 
                 # Inflows for LP: Distributions from exits with waterfall logic
-                distribution_in_year = cash_flows[year] if cash_flows[year] > 0 else 0
-                if distribution_in_year > 0:
+                distribution_in_month = cash_flows[month] if cash_flows[month] > 0 else 0
+                if distribution_in_month > 0:
                     # First, return all contributed capital to LPs
                     capital_to_return_hurdle = total_contributions - lp_capital_returned
-                    dist_for_capital_return = min(distribution_in_year, capital_to_return_hurdle)
+                    dist_for_capital_return = min(distribution_in_month, capital_to_return_hurdle)
                     
-                    lp_net_cash_flows[year] += dist_for_capital_return
+                    lp_net_cash_flows[month] += dist_for_capital_return
                     lp_capital_returned += dist_for_capital_return
                     
                     # Then, split remaining profit 80/20
-                    profit_distribution = distribution_in_year - dist_for_capital_return
+                    profit_distribution = distribution_in_month - dist_for_capital_return
                     if profit_distribution > 0:
                         lp_share_of_profit = profit_distribution * 0.80 # 80% to LPs
-                        lp_net_cash_flows[year] += lp_share_of_profit
+                        lp_net_cash_flows[month] += lp_share_of_profit
 
-            net_irr = npf.irr(lp_net_cash_flows)
+            net_irr_monthly = npf.irr(lp_net_cash_flows)
+            net_irr = (1 + net_irr_monthly) ** 12 - 1 if not np.isnan(net_irr_monthly) else np.nan
 
         except ValueError:
-            # If IRR calculation fails for either, set both to a failure value
-            gross_irr = -1.0
-            net_irr = -1.0
+            # If IRR calculation fails for either, mark as NaN so downstream metrics exclude them
+            gross_irr = np.nan
+            net_irr = np.nan
 
         run_data = {
             'moic': moic, 'tvpi': tvpi, 
@@ -707,9 +1016,34 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000):
         all_simulation_runs.append(run_data)
         all_portfolios.append(portfolio_details)
 
+        # Progress callback (throttled aggressively for performance)
+        if progress_cb is not None:
+            # Update at most ~50 times per run to minimize UI overhead
+            throttle = max(1, num_simulations // 50)
+            if (sim_idx + 1) % throttle == 0 or (sim_idx + 1) == num_simulations:
+                try:
+                    progress_cb((sim_idx + 1) / float(num_simulations))
+                except Exception:
+                    # Don't let UI failures break the simulation
+                    pass
+
     # --- NEW: Return both simulation results and portfolio details ---
     results_df = pd.DataFrame(all_simulation_runs)
     results_df['portfolio_details'] = all_portfolios
+    # Store aggregated runtime warnings for later display (single UI write)
+    try:
+        runtime_warnings = []
+        if adjusted_success_odds_count > 0:
+            runtime_warnings.append(
+                f"Adjusted success odds to preserve scenario probabilities {adjusted_success_odds_count:,} times. Consider tuning Success Odds Factors or strategy probabilities."
+            )
+        if softened_strategy_rates_count > 0:
+            runtime_warnings.append(
+                f"Softened strategy success rates {softened_strategy_rates_count:,} times due to 100% strategy mass. Consider leaving some probability for no-follow."
+            )
+        st.session_state['simulation_runtime_warnings'] = runtime_warnings
+    except Exception:
+        pass
     
     return results_df
 
@@ -1243,8 +1577,9 @@ def create_single_portfolio_view(results_df, fund_model, percentile, tab_title):
     display_columns = [
         'company_id', 'investment_year', 'stage', 'status', 
         'initial_check', 'initial_ownership',
-        'follow_on', 'follow_on_check', 'ownership_after_follow_on', 
-        'final_ownership_at_exit', 'exit_year', 'exit_valuation', 'net_return'
+        'follow_on', 'follow_on_check',
+        'follow_on_dilution_pct', 'ownership_after_follow_on_dilution', 'ownership_from_follow_on', 'ownership_after_follow_on',
+        'final_ownership_at_exit', 'exit_dilution_pct', 'exit_year', 'exit_valuation', 'net_return'
     ]
     portfolio_df = portfolio_df[display_columns]
 
@@ -1254,8 +1589,12 @@ def create_single_portfolio_view(results_df, fund_model, percentile, tab_title):
             'initial_ownership': "{:.2f}%",
             'entry_valuation': "${:,.1f}M",
             'follow_on_check': "${:,.2f}M",
+            'follow_on_dilution_pct': "{:.0f}%",
+            'ownership_after_follow_on_dilution': "{:.2f}%",
+            'ownership_from_follow_on': "{:.2f}%",
             'ownership_after_follow_on': "{:.2f}%",
             'final_ownership_at_exit': "{:.2f}%",
+            'exit_dilution_pct': "{:.0f}%",
             'exit_valuation': "${:,.1f}M",
             'net_return': "${:,.2f}M",
         }).set_properties(**{'text-align': 'left'}) \
