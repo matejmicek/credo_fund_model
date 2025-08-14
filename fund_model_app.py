@@ -584,8 +584,8 @@ def render_fund_model_ui():
                 main_progress_bar.progress(r)
                 main_status_text.text(f"Main simulation: {int(r*100)}%")
 
-        with st.spinner("Running main simulation (3,000 iterations)... This might take a moment."):
-            main_results_df = run_monte_carlo_simulation(st.session_state.fund_model, 3000, progress_cb=_update_main_progress)
+        with st.spinner("Running main simulation (1,000 iterations)... This might take a moment."):
+            main_results_df = run_monte_carlo_simulation(st.session_state.fund_model, 1000, progress_cb=_update_main_progress)
             st.session_state.simulation_results = main_results_df
         # Clear main progress UI
         main_progress_bar.empty()
@@ -1683,7 +1683,7 @@ def create_single_portfolio_view(results_df, fund_model, percentile, tab_title):
 
 def create_analysis_tab():
     st.subheader("Fund Size Sensitivity Analysis")
-    st.info("This analysis shows how key return metrics change based on the total fund size. The point corresponding to your configured fund size uses the high-precision 10k simulation, while other points use a faster 2k simulation.", icon="ℹ️")
+    st.info("This analysis shows how key return metrics change based on the total fund size. The point corresponding to your configured fund size uses the 1k simulation, while other points use a faster 500 simulation.", icon="ℹ️")
     
     analysis_df = st.session_state.fund_size_analysis_results
     base_fund_size = st.session_state.fund_model['fund_size']
@@ -2202,50 +2202,53 @@ def _render_fund_model_assumptions_readonly(model: dict) -> None:
     st.markdown("---")
     st.header("Investment Buckets")
     sorted_bucket_keys = sorted(model.get('buckets', {}).keys(), key=int)
-    for i_str in sorted_bucket_keys:
-        bucket = model['buckets'][i_str]
-        with st.container(border=True):
-            st.subheader(f"{bucket.get('name', '')} ({int(bucket.get('percentage', 0))}% initial / {int(bucket.get('follow_on_allocation_pct', 0))}% follow-on)")
-            cc1, cc2, cc3 = st.columns(3)
-            cc1.metric("Avg Ticket", f"${float(bucket.get('avg_ticket', 0)):.1f}M")
-            cc2.metric("Entry Valuation Min", f"${float(bucket.get('entry_valuation_min', 0)):.1f}M")
-            cc3.metric("Entry Valuation Max", f"${float(bucket.get('entry_valuation_max', 0)):.1f}M")
+    bucket_keys = list(sorted_bucket_keys)
+    if bucket_keys:
+        # Aim to fit 5-6 buckets on a single row; fall back if fewer
+        cols_per_row = min(6, max(1, len(bucket_keys)))
+        for start in range(0, len(bucket_keys), cols_per_row):
+            row_keys = bucket_keys[start:start + cols_per_row]
+            cols = st.columns(len(row_keys))
+            for col, i_str in zip(cols, row_keys):
+                bucket = model['buckets'][i_str]
+                with col:
+                    # Wrap tile content to draw vertical divider via CSS
+                    st.markdown("<div class='bucket-col'>", unsafe_allow_html=True)
+                    with st.container(border=False):
+                        # Compact header
+                        st.markdown(f"<div style='font-size:0.95rem; font-weight:700'>{bucket.get('name', '')} <span style='font-weight:500'>( {int(bucket.get('percentage', 0))}% initial / {int(bucket.get('follow_on_allocation_pct', 0))}% follow-on )</span></div>", unsafe_allow_html=True)
+                        cc1, cc2, cc3 = st.columns(3)
+                        cc1.metric("Avg Ticket", f"${float(bucket.get('avg_ticket', 0)):.1f}M")
+                        cc2.metric("Entry Val Min", f"${float(bucket.get('entry_valuation_min', 0)):.1f}M")
+                        cc3.metric("Entry Val Max", f"${float(bucket.get('entry_valuation_max', 0)):.1f}M")
+                        # Ownership range
+                        avg_ticket = float(bucket.get('avg_ticket', 0))
+                        min_entry_val = float(bucket.get('entry_valuation_min', 0))
+                        max_entry_val = float(bucket.get('entry_valuation_max', 0))
+                        min_ownership = (avg_ticket / max_entry_val * 100) if max_entry_val > 0 else 0
+                        max_ownership = (avg_ticket / min_entry_val * 100) if min_entry_val > 0 else 0
+                        st.caption(f"Expected ownership range: {min_ownership:.1f}% – {max_ownership:.1f}%")
 
-            # Ownership range
-            avg_ticket = float(bucket.get('avg_ticket', 0))
-            min_entry_val = float(bucket.get('entry_valuation_min', 0))
-            max_entry_val = float(bucket.get('entry_valuation_max', 0))
-            min_ownership = (avg_ticket / max_entry_val * 100) if max_entry_val > 0 else 0
-            max_ownership = (avg_ticket / min_entry_val * 100) if min_entry_val > 0 else 0
-            st.caption(f"Expected ownership range: {min_ownership:.1f}% – {max_ownership:.1f}%")
+                        st.markdown("<div class='bucket-section-title'><strong>Deployment Schedule</strong></div>", unsafe_allow_html=True)
+                        ds = [bucket.get('deploy_y1', 0), bucket.get('deploy_y2', 0), bucket.get('deploy_y3', 0), bucket.get('deploy_y4', 0)]
+                        ds_labels = ["Year 1", "Year 2", "Year 3", "Year 4"]
+                        # Removed progress bar per request; show concise summary only
+                        st.caption(", ".join(f"{l}: {v}%" for l, v in zip(ds_labels, ds)))
 
-            st.markdown("**Deployment Schedule**")
-            ds = [bucket.get('deploy_y1', 0), bucket.get('deploy_y2', 0), bucket.get('deploy_y3', 0), bucket.get('deploy_y4', 0)]
-            ds_labels = ["Year 1", "Year 2", "Year 3", "Year 4"]
-            try:
-                ratio = max(0.0, min(1.0, float(sum(ds)) / 100.0))
-            except Exception:
-                ratio = 0.0
-            try:
-                st.progress(ratio, text="Total = {}%".format(sum(ds)))
-            except TypeError:
-                st.progress(ratio)
-            st.caption(", ".join(f"{l}: {v}%" for l, v in zip(ds_labels, ds)))
+                        st.markdown("<div class='bucket-section-title'><strong>Follow-on Strategies</strong></div>", unsafe_allow_html=True)
+                        strategies = bucket.get('follow_on_strategies', [])
+                        if strategies:
+                            for s in strategies:
+                                st.markdown(f"- {s.get('name', 'Strategy')}: {float(s.get('probability', 0)):.0f}% prob, {float(s.get('timing', 0)):.1f} yrs, size {int(s.get('size_pct_of_initial', 0))}% of initial, val x{float(s.get('valuation_multiple', 0)):.1f}, dil {float(s.get('dilution_pct', 0)):.0f}%")
+                        else:
+                            st.caption("No follow-on strategies defined.")
 
-            st.markdown("**Follow-on Strategies**")
-            strategies = bucket.get('follow_on_strategies', [])
-            if strategies:
-                for s in strategies:
-                    st.markdown(f"- {s.get('name', 'Strategy')}: {float(s.get('probability', 0)):.1f}% prob, timing {float(s.get('timing', 0)):.1f} yrs, size {int(s.get('size_pct_of_initial', 0))}% of initial, valuation x{float(s.get('valuation_multiple', 0)):.1f}, dilution {float(s.get('dilution_pct', 0)):.0f}%")
-            else:
-                st.caption("No follow-on strategies defined.")
+                        # Exit Scenarios are intentionally omitted from tiles; see matrix below for cross-bucket view
+                    st.markdown("</div>", unsafe_allow_html=True)
 
-            st.markdown("**Exit Scenarios**")
-            scenarios = bucket.get('scenarios', [])
-            if scenarios:
-                _render_exit_scenarios_cards(scenarios)
-            else:
-                st.caption("No exit scenarios defined.")
+        # Matrix overview of exit scenarios across all buckets
+        st.markdown("---")
+        _render_exit_scenarios_overview_matrix(model)
 
 
 def _inject_lp_css():
@@ -2255,7 +2258,33 @@ def _inject_lp_css():
         /* Hide sidebar and menu/footer */
         div[data-testid="stSidebar"], #MainMenu, footer { display: none !important; }
         /* Card polish */
-        div[data-testid="stVerticalBlockBorderWrapper"] { background-color: #FAFAFA; border-radius: 10px; padding: 0.5rem; }
+        /* Neutralize default card styling for bucket tiles */
+        div[data-testid="stVerticalBlockBorderWrapper"] { background-color: transparent; border-radius: 0; padding: 0; }
+        /* Tighter headings/metrics to fit 5-6 columns */
+        div[data-testid="stVerticalBlockBorderWrapper"] h1,
+        div[data-testid="stVerticalBlockBorderWrapper"] h2,
+        div[data-testid="stVerticalBlockBorderWrapper"] h3,
+        div[data-testid="stVerticalBlockBorderWrapper"] h4 { margin: 0.25rem 0 0.5rem 0; }
+        div[data-testid="stVerticalBlockBorderWrapper"] h2, 
+        div[data-testid="stVerticalBlockBorderWrapper"] h3 { font-size: 1.0rem; line-height: 1.2; }
+        /* Compact metric component */
+        div[data-testid="stMetricValue"] { font-size: 0.95rem !important; }
+        div[data-testid="stMetricLabel"] { font-size: 0.75rem !important; }
+        /* Compact captions */
+        p, .stCaption { font-size: 0.85rem; }
+        /* Align section headers across tiles */
+        .bucket-section-title { min-height: 22px; display: flex; align-items: center; }
+        .bucket-table-headers { margin-top: 0.25rem; }
+        /* Pills for matrix cells */
+        .pill { display:inline-block; padding:2px 8px; border-radius:9999px; font-size:0.8rem; margin:3px 6px 3px 0; }
+        .pill-yrs { background:#EEF2FF; color:#334155; }
+        .pill-dil { background:#FFF1F2; color:#7F1D1D; }
+        /* Matrix row/cell spacing */
+        .matrix-cell { padding: 8px 0 12px 0; }
+        .matrix-label { padding: 10px 0; }
+        .matrix-header-center { text-align: center; }
+        /* Vertical divider between bucket columns */
+        .bucket-col { border-right: 1px solid #E5E7EB; padding: 0 12px; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -2358,3 +2387,160 @@ def _render_exit_scenarios_cards(scenarios: list) -> None:
                     ymax = int(scenario.get('exit_year_max', 0))
                     st.caption("Time to Exit (Years)")
                     st.markdown(f"{ymin}–{ymax}")
+
+
+def _render_exit_scenarios_horizontal(scenarios: list, unique_suffix: str = "") -> None:
+    # Render scenarios as a single horizontal normalized stacked bar for compact comparison
+    # Enforce canonical order to align segments across buckets
+    canonical_order = [
+        "Failure", "$10M Exit", "$50M Exit", "$100M Exit", "$500M Exit", "$1B+ Exit",
+        "Base Case", "Home Run"
+    ]
+    prob_by_name = {s.get('name', ''): float(s.get('probability', 0)) for s in scenarios}
+    # Keep only present names but in canonical order; append any extra names deterministically
+    present_canonical = [n for n in canonical_order if n in prob_by_name]
+    extras = sorted([n for n in prob_by_name.keys() if n not in canonical_order])
+    names = present_canonical + extras
+    probs = [prob_by_name.get(n, 0.0) for n in names]
+    total = sum(probs) or 1.0
+    probs = [p / total * 100.0 for p in probs]
+
+    fig = go.Figure()
+    cum = 0.0
+    colors = [
+        "#d62728",  # Failure
+        "#ff9896",  # $10M
+        "#98df8a",  # $50M
+        "#2ca02c",  # $100M
+        "#1f77b4",  # $500M
+        "#9467bd",  # $1B+
+        "#8c564b",  # Base Case
+        "#e377c2",  # Home Run
+    ]
+    for i, (name, p) in enumerate(zip(names, probs)):
+        fig.add_trace(go.Bar(
+            x=[p], y=[""], orientation='h', name=name,
+            width=0.5,
+            marker_color=colors[i % len(colors)],
+            hovertemplate=f"{name}: {p:.0f}%<extra></extra>"
+        ))
+        cum += p
+
+    fig.update_layout(
+        barmode='stack',
+        showlegend=False,
+        height=90,
+        margin=dict(l=10, r=10, t=10, b=10),
+        xaxis=dict(range=[0, 100], showgrid=False, ticksuffix='%'),
+        yaxis=dict(showticklabels=False, showgrid=False)
+    )
+    key_suffix = unique_suffix or str(abs(hash(tuple(names))))
+    st.plotly_chart(fig, use_container_width=True, key=f"exits_{key_suffix}")
+
+
+def _render_exit_scenarios_table(scenarios: list) -> None:
+    # Canonical order for row alignment across buckets
+    canonical_order = [
+        "Failure", "$10M Exit", "$50M Exit", "$100M Exit", "$500M Exit", "$1B+ Exit",
+        "Base Case", "Home Run"
+    ]
+    # Build rows
+    rows = []
+    seen = set()
+    for name in canonical_order:
+        for s in scenarios:
+            if s.get('name') == name:
+                rows.append(s)
+                seen.add(id(s))
+                break
+    # Append any extra scenarios not in canonical order
+    rows.extend([s for s in scenarios if id(s) not in seen])
+
+    # Render compact table
+    headers = ["Scenario", "Prob", "Valuation ($M)", "Dilution", "Exit (yrs)"]
+    c1, c2, c3, c4, c5 = st.columns([2, 1, 2, 1, 1])
+    c1.caption(headers[0]); c2.caption(headers[1]); c3.caption(headers[2]); c4.caption(headers[3]); c5.caption(headers[4])
+    for s in rows:
+        name = s.get('name', '')
+        prob = f"{float(s.get('probability', 0)):.0f}%"
+        vmin = f"{float(s.get('exit_valuation_min', 0)):.0f}"
+        vmax = f"{float(s.get('exit_valuation_max', 0)):.0f}"
+        dil = f"{float(s.get('exit_dilution_pct', 0)):.0f}%"
+        ymin = int(s.get('exit_year_min', 0))
+        ymax = int(s.get('exit_year_max', 0))
+        r1, r2, r3, r4, r5 = st.columns([2, 1, 2, 1, 1])
+        r1.markdown(name)
+        r2.markdown(prob)
+        r3.markdown(f"{vmin}–{vmax}")
+        r4.markdown(dil)
+        r5.markdown(f"{ymin}–{ymax}")
+
+
+def _render_exit_scenarios_overview_matrix(model: dict) -> None:
+    st.subheader("Exit Scenarios Matrix")
+    buckets = model.get('buckets', {})
+    keys = sorted(buckets.keys(), key=int)
+
+    # Canonical order template (used only to order if present); rows are derived from the union across buckets
+    canonical_order = [
+        "Failure", "$10M Exit", "$50M Exit", "$100M Exit", "$500M Exit", "$1B+ Exit",
+        "Base Case", "Home Run"
+    ]
+
+    # Build a mapping for each bucket: scenario name -> properties and collect union of scenario names
+    per_bucket = {}
+    names_union = set()
+    for k in keys:
+        scenarios = buckets[k].get('scenarios', [])
+        m = {s.get('name', ''): s for s in scenarios}
+        per_bucket[k] = m
+        names_union.update([s.get('name', '') for s in scenarios])
+
+    # Determine row order from union, respecting canonical ordering for known names
+    present_canonical = [n for n in canonical_order if n in names_union]
+    extras = sorted([n for n in names_union if n not in canonical_order])
+    scenario_rows = present_canonical + extras
+
+    # Build valuation range map per scenario from the first bucket that defines it
+    scenario_to_val = {}
+    for k in keys:
+        for s in buckets[k].get('scenarios', []):
+            name = s.get('name', '')
+            if name and name not in scenario_to_val:
+                vmin = f"{float(s.get('exit_valuation_min', 0)):.0f}"
+                vmax = f"{float(s.get('exit_valuation_max', 0)):.0f}"
+                scenario_to_val[name] = f"{vmin}–{vmax}"
+
+    # Header row: empty left corner + one column per bucket
+    left_col_width = 2
+    header_cols = st.columns([left_col_width] + [1 for _ in keys])
+    header_cols[0].markdown("<div class='matrix-label'><strong>Exit Scenario (Valuation $M)</strong></div>", unsafe_allow_html=True)
+    for idx, k in enumerate(keys, start=1):
+        header_cols[idx].markdown(
+            f"<div class='matrix-label matrix-header-center'><strong>{buckets[k].get('name','Bucket ' + k)}</strong></div>",
+            unsafe_allow_html=True
+        )
+
+    # Render each scenario row
+    for name in scenario_rows:
+        row_cols = st.columns([left_col_width] + [1 for _ in keys])
+        valtxt = scenario_to_val.get(name, "")
+        row_cols[0].markdown(f"<div class='matrix-cell'>{name} <span style='color:#64748B'>({valtxt})</span></div>", unsafe_allow_html=True)
+        for cidx, k in enumerate(keys, start=1):
+            s = per_bucket[k].get(name)
+            if not s:
+                row_cols[cidx].markdown("<div class='matrix-cell' style='text-align:center; color:#94a3b8'>–</div>", unsafe_allow_html=True)
+            else:
+                prob = f"{float(s.get('probability', 0)):.0f}%"
+                dil = f"{float(s.get('exit_dilution_pct', 0)):.0f}%"
+                ymin = int(s.get('exit_year_min', 0))
+                ymax = int(s.get('exit_year_max', 0))
+                # Compact multiline cell with pills for nicer look and centered content
+                row_cols[cidx].markdown(
+                    "<div class='matrix-cell' style='text-align:center'>"
+                    + f"<strong>{prob}</strong><br/>"
+                    + f"<span class='pill pill-dil'>Dil {dil}</span>"
+                    + f"<span class='pill pill-yrs'>{ymin}–{ymax} yrs</span>"
+                    + "</div>",
+                    unsafe_allow_html=True
+                )

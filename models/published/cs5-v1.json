@@ -463,6 +463,6 @@
       ]
     }
   },
-  "display_name": "CS 5 v1 decacorn",
+  "display_name": "CS5 v1",
   "description": "50% more failure rate for Exploratory Checks\n30% less failure rate for Large Pre-Seed\nSmall Pre-Seed and Seed modelled same as CS4"
 }
