@@ -1,0 +1,468 @@
+{
+  "fund_size": 70,
+  "follow_on_reserve": 30,
+  "buckets": {
+    "1": {
+      "name": "Exploratory Checks",
+      "percentage": 3,
+      "deploy_y1": 25,
+      "deploy_y2": 25,
+      "deploy_y3": 25,
+      "deploy_y4": 25,
+      "avg_ticket": 0.2,
+      "entry_valuation_min": 4.0,
+      "entry_valuation_max": 8.0,
+      "follow_on_allocation_pct": 7,
+      "follow_on_probability": 10,
+      "follow_on_timing": 1.5,
+      "follow_on_size_pct_of_initial": 1000,
+      "follow_on_valuation_multiple": 3.000000000000001,
+      "scenarios": [
+        {
+          "name": "Failure",
+          "probability": 45.0,
+          "exit_valuation_min": 0.0,
+          "exit_valuation_max": 0.0,
+          "exit_year_min": 1,
+          "exit_year_max": 6,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$10M Exit",
+          "probability": 25.0,
+          "exit_valuation_min": 8.0,
+          "exit_valuation_max": 12.0,
+          "exit_year_min": 4,
+          "exit_year_max": 7,
+          "exit_dilution_pct": 0
+        },
+        {
+          "name": "$50M Exit",
+          "probability": 10.0,
+          "exit_valuation_min": 40.0,
+          "exit_valuation_max": 60.0,
+          "exit_year_min": 5,
+          "exit_year_max": 8,
+          "exit_dilution_pct": 15
+        },
+        {
+          "name": "$100M Exit",
+          "probability": 10.0,
+          "exit_valuation_min": 80.0,
+          "exit_valuation_max": 120.0,
+          "exit_year_min": 6,
+          "exit_year_max": 9,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$500M Exit",
+          "probability": 9.0,
+          "exit_valuation_min": 400.0,
+          "exit_valuation_max": 600.0,
+          "exit_year_min": 7,
+          "exit_year_max": 11,
+          "exit_dilution_pct": 35
+        },
+        {
+          "name": "$1B+ Exit",
+          "probability": 1.0,
+          "exit_valuation_min": 800.0,
+          "exit_valuation_max": 1200.0,
+          "exit_year_min": 8,
+          "exit_year_max": 12,
+          "exit_dilution_pct": 40
+        }
+      ],
+      "follow_on_strategies": [
+        {
+          "name": "Double-Down",
+          "probability": 10.0,
+          "timing": 2.0,
+          "size_pct_of_initial": 1000,
+          "valuation_multiple": 2.0,
+          "dilution_pct": 15.0,
+          "success_odds_factor": 2.0
+        },
+        {
+          "name": "Drop",
+          "probability": 90.0,
+          "timing": 2.0,
+          "size_pct_of_initial": 0,
+          "valuation_multiple": 2.0,
+          "dilution_pct": 15.0,
+          "success_odds_factor": 1.0
+        }
+      ]
+    },
+    "2": {
+      "name": "Small Pre-Seed",
+      "percentage": 45,
+      "deploy_y1": 25,
+      "deploy_y2": 25,
+      "deploy_y3": 25,
+      "deploy_y4": 25,
+      "avg_ticket": 1.1,
+      "entry_valuation_min": 8.0,
+      "entry_valuation_max": 12.0,
+      "follow_on_allocation_pct": 74,
+      "follow_on_probability": 80,
+      "follow_on_timing": 2.0,
+      "follow_on_size_pct_of_initial": 50,
+      "follow_on_valuation_multiple": 2.0,
+      "scenarios": [
+        {
+          "name": "Failure",
+          "probability": 36.0,
+          "exit_valuation_min": 0.0,
+          "exit_valuation_max": 0.0,
+          "exit_year_min": 4,
+          "exit_year_max": 7,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$10M Exit",
+          "probability": 30.0,
+          "exit_valuation_min": 8.0,
+          "exit_valuation_max": 12.0,
+          "exit_year_min": 5,
+          "exit_year_max": 8,
+          "exit_dilution_pct": 0
+        },
+        {
+          "name": "$50M Exit",
+          "probability": 11.0,
+          "exit_valuation_min": 40.0,
+          "exit_valuation_max": 60.0,
+          "exit_year_min": 6,
+          "exit_year_max": 9,
+          "exit_dilution_pct": 15
+        },
+        {
+          "name": "$100M Exit",
+          "probability": 10.5,
+          "exit_valuation_min": 80.0,
+          "exit_valuation_max": 120.0,
+          "exit_year_min": 7,
+          "exit_year_max": 10,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$500M Exit",
+          "probability": 10.0,
+          "exit_valuation_min": 400.0,
+          "exit_valuation_max": 600.0,
+          "exit_year_min": 8,
+          "exit_year_max": 12,
+          "exit_dilution_pct": 35
+        },
+        {
+          "name": "$1B+ Exit",
+          "probability": 1.5,
+          "exit_valuation_min": 800.0,
+          "exit_valuation_max": 1200.0,
+          "exit_year_min": 9,
+          "exit_year_max": 13,
+          "exit_dilution_pct": 40
+        },
+        {
+          "name": "$5B+ Exit",
+          "probability": 1.0,
+          "exit_valuation_min": 5000.0,
+          "exit_valuation_max": 10000.0,
+          "exit_year_min": 9,
+          "exit_year_max": 13,
+          "exit_dilution_pct": 45
+        }
+      ],
+      "follow_on_strategies": [
+        {
+          "name": "Bridge",
+          "probability": 60.0,
+          "timing": 2.0,
+          "size_pct_of_initial": 50,
+          "valuation_multiple": 1.5,
+          "dilution_pct": 15.0,
+          "success_odds_factor": 1.0
+        },
+        {
+          "name": "Double-Down",
+          "probability": 20.0,
+          "timing": 2.0,
+          "size_pct_of_initial": 200,
+          "valuation_multiple": 2.0,
+          "dilution_pct": 15.0,
+          "success_odds_factor": 2.0
+        },
+        {
+          "name": "Drop",
+          "probability": 20.0,
+          "timing": 2.0,
+          "size_pct_of_initial": 0,
+          "valuation_multiple": 2.0,
+          "dilution_pct": 15.0,
+          "success_odds_factor": 0.5
+        }
+      ]
+    },
+    "3": {
+      "name": "Large Pre-Seed",
+      "percentage": 35,
+      "deploy_y1": 25,
+      "deploy_y2": 25,
+      "deploy_y3": 25,
+      "deploy_y4": 25,
+      "avg_ticket": 1.7,
+      "entry_valuation_min": 20.0,
+      "entry_valuation_max": 25.0,
+      "follow_on_allocation_pct": 13,
+      "follow_on_probability": 80,
+      "follow_on_timing": 2.0,
+      "follow_on_size_pct_of_initial": 50,
+      "follow_on_valuation_multiple": 2.0,
+      "scenarios": [
+        {
+          "name": "Failure",
+          "probability": 30.0,
+          "exit_valuation_min": 0.0,
+          "exit_valuation_max": 0.0,
+          "exit_year_min": 4,
+          "exit_year_max": 7,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$10M Exit",
+          "probability": 32.0,
+          "exit_valuation_min": 8.0,
+          "exit_valuation_max": 12.0,
+          "exit_year_min": 5,
+          "exit_year_max": 8,
+          "exit_dilution_pct": 0
+        },
+        {
+          "name": "$50M Exit",
+          "probability": 12.0,
+          "exit_valuation_min": 40.0,
+          "exit_valuation_max": 60.0,
+          "exit_year_min": 6,
+          "exit_year_max": 9,
+          "exit_dilution_pct": 15
+        },
+        {
+          "name": "$100M Exit",
+          "probability": 12.0,
+          "exit_valuation_min": 80.0,
+          "exit_valuation_max": 120.0,
+          "exit_year_min": 7,
+          "exit_year_max": 10,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$500M Exit",
+          "probability": 11.0,
+          "exit_valuation_min": 400.0,
+          "exit_valuation_max": 600.0,
+          "exit_year_min": 8,
+          "exit_year_max": 12,
+          "exit_dilution_pct": 35
+        },
+        {
+          "name": "$1B+ Exit",
+          "probability": 2.0,
+          "exit_valuation_min": 800.0,
+          "exit_valuation_max": 1200.0,
+          "exit_year_min": 9,
+          "exit_year_max": 13,
+          "exit_dilution_pct": 40
+        },
+        {
+          "name": "$5B+ Exit",
+          "probability": 1.0,
+          "exit_valuation_min": 5000.0,
+          "exit_valuation_max": 10000.0,
+          "exit_year_min": 10,
+          "exit_year_max": 13,
+          "exit_dilution_pct": 45
+        }
+      ],
+      "follow_on_strategies": [
+        {
+          "name": "Pro-Rata",
+          "probability": 50.0,
+          "timing": 2.0,
+          "size_pct_of_initial": 30,
+          "valuation_multiple": 2.0,
+          "dilution_pct": 15.0,
+          "success_odds_factor": 1.5
+        },
+        {
+          "name": "Drop",
+          "probability": 50.0,
+          "timing": 2.0,
+          "size_pct_of_initial": 0,
+          "valuation_multiple": 2.0,
+          "dilution_pct": 15.0,
+          "success_odds_factor": 1.0
+        }
+      ]
+    },
+    "4": {
+      "name": "Seed",
+      "percentage": 10,
+      "deploy_y1": 25,
+      "deploy_y2": 25,
+      "deploy_y3": 25,
+      "deploy_y4": 25,
+      "avg_ticket": 2.5,
+      "entry_valuation_min": 20.0,
+      "entry_valuation_max": 40.0,
+      "follow_on_allocation_pct": 6,
+      "follow_on_probability": 50,
+      "follow_on_timing": 2.0,
+      "follow_on_size_pct_of_initial": 50,
+      "follow_on_valuation_multiple": 2.0,
+      "scenarios": [
+        {
+          "name": "Failure",
+          "probability": 24.0,
+          "exit_valuation_min": 0.0,
+          "exit_valuation_max": 0.0,
+          "exit_year_min": 3,
+          "exit_year_max": 6,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$10M Exit",
+          "probability": 35.0,
+          "exit_valuation_min": 8.0,
+          "exit_valuation_max": 12.0,
+          "exit_year_min": 4,
+          "exit_year_max": 7,
+          "exit_dilution_pct": 0
+        },
+        {
+          "name": "$50M Exit",
+          "probability": 13.0,
+          "exit_valuation_min": 40.0,
+          "exit_valuation_max": 60.0,
+          "exit_year_min": 5,
+          "exit_year_max": 8,
+          "exit_dilution_pct": 15
+        },
+        {
+          "name": "$100M Exit",
+          "probability": 13.0,
+          "exit_valuation_min": 80.0,
+          "exit_valuation_max": 120.0,
+          "exit_year_min": 6,
+          "exit_year_max": 9,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$500M Exit",
+          "probability": 11.5,
+          "exit_valuation_min": 400.0,
+          "exit_valuation_max": 600.0,
+          "exit_year_min": 7,
+          "exit_year_max": 11,
+          "exit_dilution_pct": 35
+        },
+        {
+          "name": "$1B+ Exit",
+          "probability": 2.5,
+          "exit_valuation_min": 800.0,
+          "exit_valuation_max": 1200.0,
+          "exit_year_min": 8,
+          "exit_year_max": 12,
+          "exit_dilution_pct": 40
+        },
+        {
+          "name": "$5B+ Exit",
+          "probability": 1.0,
+          "exit_valuation_min": 5000.0,
+          "exit_valuation_max": 10000.0,
+          "exit_year_min": 8,
+          "exit_year_max": 12,
+          "exit_dilution_pct": 45
+        }
+      ],
+      "follow_on_strategies": [
+        {
+          "name": "Pro-Rata",
+          "probability": 25.0,
+          "timing": 2.0,
+          "size_pct_of_initial": 100,
+          "valuation_multiple": 2.0,
+          "dilution_pct": 15.0,
+          "success_odds_factor": 2.0
+        },
+        {
+          "name": "Drop",
+          "probability": 75.0,
+          "timing": 2.0,
+          "size_pct_of_initial": 0,
+          "valuation_multiple": 2.0,
+          "dilution_pct": 15.0,
+          "success_odds_factor": 1.0
+        }
+      ]
+    },
+    "5": {
+      "name": "Streategic",
+      "percentage": 7,
+      "deploy_y1": 25,
+      "deploy_y2": 25,
+      "deploy_y3": 25,
+      "deploy_y4": 25,
+      "avg_ticket": 1.5,
+      "entry_valuation_min": 50.0,
+      "entry_valuation_max": 100.0,
+      "follow_on_allocation_pct": 0,
+      "follow_on_probability": 50,
+      "follow_on_timing": 2.0,
+      "follow_on_size_pct_of_initial": 100,
+      "follow_on_valuation_multiple": 2.0,
+      "scenarios": [
+        {
+          "name": "Failure",
+          "probability": 60.0,
+          "exit_valuation_min": 0.0,
+          "exit_valuation_max": 0.0,
+          "exit_year_min": 5,
+          "exit_year_max": 8,
+          "exit_dilution_pct": 20
+        },
+        {
+          "name": "$500M Exit",
+          "probability": 37.0,
+          "exit_valuation_min": 400.0,
+          "exit_valuation_max": 600.0,
+          "exit_year_min": 4,
+          "exit_year_max": 5,
+          "exit_dilution_pct": 40
+        },
+        {
+          "name": "$5B+ Exit",
+          "probability": 3.0,
+          "exit_valuation_min": 5000.0,
+          "exit_valuation_max": 10000.0,
+          "exit_year_min": 7,
+          "exit_year_max": 11,
+          "exit_dilution_pct": 50
+        }
+      ],
+      "follow_on_strategies": [
+        {
+          "name": "Drop",
+          "probability": 100.0,
+          "timing": 2.0,
+          "size_pct_of_initial": 0,
+          "valuation_multiple": 2.0,
+          "dilution_pct": 15.0,
+          "success_odds_factor": 1.0
+        }
+      ]
+    }
+  },
+  "display_name": "CS5 v2",
+  "description": "50% more failure rate for Exploratory Checks\n30% less failure rate for Large Pre-Seed\nSmall Pre-Seed and Seed modelled same as CS4"
+}

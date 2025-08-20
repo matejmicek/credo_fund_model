@@ -1,4 +1,11 @@
 import streamlit as st
+from PIL import Image
+
+im = Image.open("credo_logo.png")
+st.set_page_config(page_title="Credo VC Fund Model", page_icon=im)
+
+st.image("credo_logo.png", width=200)
+
 import pandas as pd
 import numpy as np
 import numpy_financial as npf
@@ -425,6 +432,7 @@ def render_fund_model_ui():
                     'size_pct_of_initial': float(bucket.get('follow_on_size_pct_of_initial', 0.0)),
                     'valuation_multiple': float(bucket.get('follow_on_valuation_multiple', 2.0)),
                     'dilution_pct': float(bucket.get('follow_on_dilution_pct', 15.0)),
+                    'success_odds_factor': 1.0,
                 }]
             total_strategy_prob = sum(float(s.get('probability', 0)) for s in strategies)
             if total_strategy_prob > 100 + 1e-6:
@@ -584,8 +592,8 @@ def render_fund_model_ui():
                 main_progress_bar.progress(r)
                 main_status_text.text(f"Main simulation: {int(r*100)}%")
 
-        with st.spinner("Running main simulation (1,000 iterations)... This might take a moment."):
-            main_results_df = run_monte_carlo_simulation(st.session_state.fund_model, 1000, progress_cb=_update_main_progress)
+        with st.spinner("Running main simulation (500 iterations)... This might take a moment."):
+            main_results_df = run_monte_carlo_simulation(st.session_state.fund_model, 500, progress_cb=_update_main_progress)
             st.session_state.simulation_results = main_results_df
         # Clear main progress UI
         main_progress_bar.empty()
@@ -615,7 +623,7 @@ def render_fund_model_ui():
                 # Run lower-precision simulation for other sizes
                 model_copy = deepcopy(st.session_state.fund_model)
                 model_copy['fund_size'] = size
-                results_df = run_monte_carlo_simulation(model_copy, 500)
+                results_df = run_monte_carlo_simulation(model_copy, 200)
 
             # Calculate and store metrics for this fund size
             mean_tvpi = results_df['tvpi'].mean()
@@ -735,22 +743,46 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=No
             bucket_capital = initial_capital_pool * (bucket['percentage'] / 100)
             avg_ticket = bucket.get('avg_ticket', 0)
             if avg_ticket <= 0: continue
-            
-            num_investments = int(bucket_capital / avg_ticket)
-            
-            deploy_pcts = np.array([
-                bucket.get('deploy_y1', 0), bucket.get('deploy_y2', 0),
-                bucket.get('deploy_y3', 0), bucket.get('deploy_y4', 0)
-            ])
-            if deploy_pcts.sum() == 0: continue
-            deploy_probs = deploy_pcts / deploy_pcts.sum()
 
-            investment_years = np.random.choice([0, 1, 2, 3], size=num_investments, p=deploy_probs)
-            for year in investment_years:
-                # Random month within the selected deployment year
+            # --- NEW: Dynamically create investments with randomized ticket sizes ---
+            invested_capital_in_bucket = 0
+            attempts = 0
+            while invested_capital_in_bucket < bucket_capital:
+                # Randomize ticket size: +-15%
+                ticket_variance = np.random.uniform(-0.15, 0.15)
+                randomized_ticket = avg_ticket * (1 + ticket_variance)
+                
+                # Round to nearest 50k
+                ticket_size = round(randomized_ticket * 20) / 20
+
+                # Ensure we don't overallocate the bucket
+                if invested_capital_in_bucket + ticket_size > bucket_capital:
+                    if attempts > 3:
+                        break
+                    attempts += 1
+                    continue
+
+                invested_capital_in_bucket += ticket_size
+
+                # Determine investment timing
+                deploy_pcts = np.array([
+                    bucket.get('deploy_y1', 0), bucket.get('deploy_y2', 0),
+                    bucket.get('deploy_y3', 0), bucket.get('deploy_y4', 0)
+                ])
+                if deploy_pcts.sum() == 0: continue
+                deploy_probs = deploy_pcts / deploy_pcts.sum()
+
+                invest_year = np.random.choice([0, 1, 2, 3], p=deploy_probs)
                 month_offset = np.random.randint(0, 12)
-                invest_month = year * 12 + month_offset
-                all_investments.append({'bucket_key': i_str, 'bucket': bucket, 'invest_month': invest_month, 'invest_year': year})
+                invest_month = invest_year * 12 + month_offset
+
+                all_investments.append({
+                    'bucket_key': i_str,
+                    'bucket': bucket,
+                    'invest_month': invest_month,
+                    'invest_year': invest_year,
+                    'ticket_size': ticket_size  # Store the actual ticket size
+                })
 
         # Process each investment through its lifecycle
         for investment_idx, investment in enumerate(all_investments):
@@ -758,7 +790,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=No
             bucket = investment['bucket']
             invest_month = investment['invest_month']
             investment_year = investment['invest_year']
-            avg_ticket = bucket.get('avg_ticket', 0)
+            ticket_size = investment['ticket_size'] # Use actual ticket size
 
             # Sample entry valuation for this specific investment
             entry_valuation_min = bucket.get('entry_valuation_min', 0)
@@ -766,15 +798,15 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=No
             entry_valuation = np.random.uniform(entry_valuation_min, entry_valuation_max) if entry_valuation_max > entry_valuation_min else entry_valuation_min
 
             # Track initial investment stats
-            initial_capital_invested_by_bucket[bucket_key] += avg_ticket
+            initial_capital_invested_by_bucket[bucket_key] += ticket_size
             initial_investment_count_by_bucket[bucket_key] += 1
 
             # Initial investment cash flow
-            cash_flows[invest_month] -= avg_ticket
-            total_invested_cash += avg_ticket
+            cash_flows[invest_month] -= ticket_size
+            total_invested_cash += ticket_size
 
             # --- Ownership and Return Calculation ---
-            initial_ownership_pct = (avg_ticket / entry_valuation * 100) if entry_valuation > 0 else 0
+            initial_ownership_pct = (ticket_size / entry_valuation * 100) if entry_valuation > 0 else 0
 
             # Handle follow-on investment using mutually exclusive strategies
             follow_on_investment = 0.0
@@ -798,7 +830,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=No
                 spent_from_pool = follow_on_capital_spent_by_bucket.get(bucket_key, 0)
 
                 follow_on_size_pct = float(chosen_strategy.get('size_pct_of_initial', 0.0))
-                follow_on_amount = avg_ticket * (follow_on_size_pct / 100.0)
+                follow_on_amount = ticket_size * (follow_on_size_pct / 100.0)
 
                 if spent_from_pool + follow_on_amount <= follow_on_pool_for_bucket:
                     follow_on_timing = float(chosen_strategy.get('timing', 2.0))
@@ -811,7 +843,8 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=No
                         did_follow_on = True
                         follow_on_investment = follow_on_amount
                         follow_on_capital_spent_by_bucket[bucket_key] += follow_on_amount
-                        follow_on_investment_count_by_bucket[bucket_key] += 1
+                        if follow_on_amount > 0:
+                            follow_on_investment_count_by_bucket[bucket_key] += 1
                         cash_flows[follow_on_month_index] -= follow_on_investment
                         total_invested_cash += follow_on_investment
 
@@ -973,21 +1006,116 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=No
                 'company_id': f"Company {investment_idx + 1}",
                 'investment_year': (invest_month // 12) + 1, # 1-based year for display
                 'stage': bucket.get('name', 'N/A'),
-                'initial_check': avg_ticket,
+                'initial_check': ticket_size,
                 'initial_ownership': initial_ownership_pct,
                 'entry_valuation': entry_valuation,
-                'follow_on': "Yes" if did_follow_on else "No",
+                'follow_on': "Yes" if follow_on_investment > 0 else "No",
                 'follow_on_check': follow_on_investment,
                 'ownership_after_follow_on': ownership_before_exit_pct,
                 'follow_on_dilution_pct': (float(chosen_strategy.get('dilution_pct')) if (chosen_strategy is not None) else bucket.get('follow_on_dilution_pct', 15)),
                 'ownership_after_follow_on_dilution': ((initial_ownership_pct * (1 - float(chosen_strategy.get('dilution_pct', 15)) / 100.0)) if (chosen_strategy is not None) else initial_ownership_pct),
-                'ownership_from_follow_on': ((follow_on_investment / (entry_valuation * float(chosen_strategy.get('valuation_multiple', 2.0))) * 100.0) if (did_follow_on and chosen_strategy is not None and entry_valuation * float(chosen_strategy.get('valuation_multiple', 2.0)) > 0) else 0.0),
+                'ownership_from_follow_on': ((follow_on_investment / (entry_valuation * float(chosen_strategy.get('valuation_multiple', 2.0))) * 100.0) if (follow_on_investment > 0 and chosen_strategy is not None and entry_valuation * float(chosen_strategy.get('valuation_multiple', 2.0)) > 0) else 0.0),
                 'final_ownership_at_exit': final_ownership_pct,
                 'status': status,
                 'exit_year': ((exit_month // 12) + 1) if status != "Active" else None,
                 'exit_valuation': exit_valuation if status != "Active" else None,
                 'net_return': realized_value,
                 'exit_scenario': chosen_scenario.get('name', 'N/A'),
+                'exit_dilution_pct': (scenario_exit_dilution_pct if status != "Active" else None)
+            })
+
+        # --- NEW: Deploy leftover capital ---
+        total_initial_invested = sum(initial_capital_invested_by_bucket.values())
+        total_follow_on_spent = sum(follow_on_capital_spent_by_bucket.values())
+        leftover_capital = investable_capital - (total_initial_invested + total_follow_on_spent)
+
+        # Get bucket probabilities for weighted random choice
+        bucket_keys = list(fund_model['buckets'].keys())
+        bucket_probs = np.array([b['percentage'] for b in fund_model['buckets'].values()], dtype=float)
+        bucket_probs /= bucket_probs.sum()
+
+        while leftover_capital > 0.05: # Minimum threshold to attempt investment
+            # Probabilistically choose a bucket for the new investment
+            chosen_bucket_key = np.random.choice(bucket_keys, p=bucket_probs)
+            bucket = fund_model['buckets'][chosen_bucket_key]
+            avg_ticket = bucket.get('avg_ticket', 0)
+            if avg_ticket <= 0 or avg_ticket > leftover_capital:
+                break # Stop if no suitable investment can be made
+
+            # Create a new primary investment
+            ticket_variance = np.random.uniform(-0.15, 0.15)
+            randomized_ticket = avg_ticket * (1 + ticket_variance)
+            ticket_size = min(round(randomized_ticket * 20) / 20, leftover_capital)
+
+            if ticket_size < 0.01:
+                break
+
+            # Investment timing (e.g., place it in year 4)
+            invest_month = 3 * 12 + np.random.randint(0, 12)
+
+            # Process this new investment's lifecycle
+            # (This is a simplified version of the main loop's logic)
+            entry_valuation = np.random.uniform(bucket.get('entry_valuation_min', 0), bucket.get('entry_valuation_max', 0))
+            initial_ownership_pct = (ticket_size / entry_valuation * 100) if entry_valuation > 0 else 0
+            
+            # Update tracking vars
+            initial_capital_invested_by_bucket[chosen_bucket_key] += ticket_size
+            initial_investment_count_by_bucket[chosen_bucket_key] += 1
+            cash_flows[invest_month] -= ticket_size
+            total_invested_cash += ticket_size
+            leftover_capital -= ticket_size
+            
+            # Simplified outcome - no follow-on for these leftover investments for now
+            # You could expand this to include follow-ons if desired
+            scenarios = bucket.get('scenarios', [])
+            realized_value = 0
+            exit_valuation = 0
+            final_ownership_pct = 0
+            status = "Active"
+            exit_month = -1
+            chosen_scenario_name = "N/A"
+            scenario_exit_dilution_pct = 0
+
+            if scenarios:
+                probs = np.array([s.get('probability', 0) for s in scenarios], dtype=float)
+                if probs.sum() > 0:
+                    probs /= probs.sum()
+                    chosen_scenario = scenarios[np.random.choice(len(scenarios), p=probs)]
+                    chosen_scenario_name = chosen_scenario.get('name', 'N/A')
+                    scenario_exit_dilution_pct = chosen_scenario.get('exit_dilution_pct', 20)
+                    
+                    exit_valuation = np.random.uniform(chosen_scenario.get('exit_valuation_min', 0), chosen_scenario.get('exit_valuation_max', 0))
+                    time_to_exit_months = np.random.randint(chosen_scenario.get('exit_year_min', 5) * 12, chosen_scenario.get('exit_year_max', 8) * 12 + 1)
+                    exit_month = invest_month + time_to_exit_months
+
+                    if exit_month < FUND_LIFE_MONTHS:
+                        final_ownership_pct = initial_ownership_pct * (1 - scenario_exit_dilution_pct / 100)
+                        realized_value = (final_ownership_pct / 100) * exit_valuation
+                        realized_value_by_bucket[chosen_bucket_key] += realized_value
+                        cash_flows[exit_month] += realized_value
+                        total_realized_value += realized_value
+                        status = "Exited" if exit_valuation > 0 else "Failed"
+
+            # Append to portfolio details
+            portfolio_details.append({
+                'company_id': f"Leftover Company {len(portfolio_details) + 1}",
+                'investment_year': (invest_month // 12) + 1,
+                'stage': bucket.get('name', 'N/A'),
+                'initial_check': ticket_size,
+                'initial_ownership': initial_ownership_pct,
+                'entry_valuation': entry_valuation,
+                'follow_on': "No",
+                'follow_on_check': 0.0,
+                'ownership_after_follow_on': initial_ownership_pct,
+                'follow_on_dilution_pct': 0,
+                'ownership_after_follow_on_dilution': initial_ownership_pct,
+                'ownership_from_follow_on': 0.0,
+                'final_ownership_at_exit': final_ownership_pct,
+                'status': status,
+                'exit_year': ((exit_month // 12) + 1) if status != "Active" else None,
+                'exit_valuation': exit_valuation if status != "Active" else None,
+                'net_return': realized_value,
+                'exit_scenario': chosen_scenario_name,
                 'exit_dilution_pct': (scenario_exit_dilution_pct if status != "Active" else None)
             })
 
@@ -1502,26 +1630,39 @@ def create_example_portfolios_tab(results_df, fund_model):
         icon="ℹ️"
     )
 
-    percentiles = {
-        "Median Case (50th Percentile)": 0.50,
-        "Upper-Median Case (65th Percentile)": 0.65,
-        "Bull Case (90th Percentile)": 0.90,
-    }
+    tabs = st.tabs([
+        "Closest to 1x MOIC", 
+        "Closest to 2x MOIC", 
+        "Median Case (50th Percentile)", 
+        "Upper-Median Case (65th Percentile)", 
+        "Bull Case (90th Percentile)"
+    ])
 
-    portfolio_tabs = st.tabs(percentiles.keys())
+    with tabs[0]:
+        create_single_portfolio_view(results_df, fund_model, percentile=None, tab_title="Closest to 1x MOIC Portfolio", target_moic=1.0)
+    with tabs[1]:
+        create_single_portfolio_view(results_df, fund_model, percentile=None, tab_title="Closest to 2x MOIC Portfolio", target_moic=2.0)
+    with tabs[2]:
+        create_single_portfolio_view(results_df, fund_model, percentile=0.50, tab_title="Median Case (50th Percentile) Portfolio")
+    with tabs[3]:
+        create_single_portfolio_view(results_df, fund_model, percentile=0.65, tab_title="Upper-Median Case (65th Percentile) Portfolio")
+    with tabs[4]:
+        create_single_portfolio_view(results_df, fund_model, percentile=0.90, tab_title="Bull Case (90th Percentile) Portfolio")
 
-    for i, (tab_title, percentile) in enumerate(percentiles.items()):
-        with portfolio_tabs[i]:
-            create_single_portfolio_view(results_df, fund_model, percentile, tab_title)
 
-
-def create_single_portfolio_view(results_df, fund_model, percentile, tab_title):
+def create_single_portfolio_view(results_df, fund_model, percentile, tab_title, target_moic=None):
     """
-    Creates the content for a single example portfolio view based on a given TVPI percentile.
+    Creates the content for a single example portfolio view based on a given TVPI percentile or target MOIC.
     """
-    # 1. Find the portfolio closest to the target TVPI percentile
-    target_tvpi = results_df['tvpi'].quantile(percentile)
-    closest_run = results_df.iloc[(results_df['tvpi'] - target_tvpi).abs().argsort()[0]]
+    # 1. Find the portfolio
+    if target_moic is not None:
+        # Find the run closest to the target MOIC
+        closest_run = results_df.iloc[(results_df['moic'] - target_moic).abs().argsort()[0]]
+        target_tvpi = closest_run['tvpi'] # For display purposes
+    else:
+        # Find the portfolio closest to the target TVPI percentile
+        target_tvpi = results_df['tvpi'].quantile(percentile)
+        closest_run = results_df.iloc[(results_df['tvpi'] - target_tvpi).abs().argsort()[0]]
     
     portfolio_data = closest_run['portfolio_details']
     
@@ -1536,8 +1677,12 @@ def create_single_portfolio_view(results_df, fund_model, percentile, tab_title):
     st.subheader("Portfolio Performance Metrics")
     
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Portfolio TVPI", f"{closest_run['tvpi']:.2f}x", help=f"Target TVPI for this scenario ({percentile:.0%}) was {target_tvpi:.2f}x")
-    col2.metric("Portfolio MOIC", f"{closest_run['moic']:.2f}x")
+    if target_moic is not None:
+        col1.metric("Portfolio TVPI", f"{closest_run['tvpi']:.2f}x")
+        col2.metric("Portfolio MOIC", f"{closest_run['moic']:.2f}x", help=f"Target MOIC for this scenario was {target_moic:.2f}x")
+    else:
+        col1.metric("Portfolio TVPI", f"{closest_run['tvpi']:.2f}x", help=f"Target TVPI for this scenario ({percentile:.0%}) was {target_tvpi:.2f}x")
+        col2.metric("Portfolio MOIC", f"{closest_run['moic']:.2f}x")
     col3.metric("Gross IRR", f"{closest_run['gross_irr']:.1%}")
     col4.metric("Net IRR", f"{closest_run['net_irr']:.1%}")
 
@@ -1575,7 +1720,7 @@ def create_single_portfolio_view(results_df, fund_model, percentile, tab_title):
             deployed_initial=('initial_check', 'sum'),
             count_initial=('company_id', 'size'),
             deployed_follow_on=('follow_on_check', 'sum'),
-            count_follow_on=('follow_on', lambda x: (x == 'Yes').sum())
+            count_follow_on=('follow_on_check', lambda x: (x > 0).sum())
         ).reset_index()
         
         # Merge allocated with actual
@@ -1605,9 +1750,13 @@ def create_single_portfolio_view(results_df, fund_model, percentile, tab_title):
     exited_df = portfolio_df[portfolio_df['status'].isin(['Exited', 'Failed'])].copy()
 
     scenario_map = {
-        "Failure": "0", "$10M Exit": "10M", "$50M Exit": "50M",
-        "$100M Exit": "100M", "$500M Exit": "500M", "$1B+ Exit": "1B",
-        "Base Case": "Base", "Home Run": "Home Run" # For strategic buckets
+        "Failure": "Failure",
+        "$10M Exit": "$10M",
+        "$50M Exit": "$50M",
+        "$100M Exit": "$100M",
+        "$500M Exit": "$500M",
+        "$1B+ Exit": "$1B+",
+        "$5B+ Exit": "$5B+"
     }
     ordered_scenarios = list(scenario_map.keys())
     
@@ -1825,7 +1974,7 @@ def _render_single_published_portfolio(data: dict, fund_model: dict, tab_title: 
             deployed_initial=('initial_check', 'sum'),
             count_initial=('company_id', 'size'),
             deployed_follow_on=('follow_on_check', 'sum'),
-            count_follow_on=('follow_on', lambda x: (x == 'Yes').sum())
+            count_follow_on=('follow_on_check', lambda x: (x > 0).sum())
         ).reset_index()
 
         summary_df = pd.merge(allocations_df, bucket_stats_df, on='stage', how='left').fillna(0)
@@ -1852,9 +2001,13 @@ def _render_single_published_portfolio(data: dict, fund_model: dict, tab_title: 
     st.subheader("Exit Distribution")
     exited_df = portfolio_df[portfolio_df['status'].isin(['Exited', 'Failed'])].copy()
     scenario_map = {
-        "Failure": "0", "$10M Exit": "10M", "$50M Exit": "50M",
-        "$100M Exit": "100M", "$500M Exit": "500M", "$1B+ Exit": "1B",
-        "Base Case": "Base", "Home Run": "Home Run"
+        "Failure": "Failure",
+        "$10M Exit": "$10M",
+        "$50M Exit": "$50M",
+        "$100M Exit": "$100M",
+        "$500M Exit": "$500M",
+        "$1B+ Exit": "$1B+",
+        "$5B+ Exit": "$5B+"
     }
     ordered_scenarios = list(scenario_map.keys())
     exited_df['exit_category'] = pd.Categorical(
@@ -2228,6 +2381,11 @@ def _render_fund_model_assumptions_readonly(model: dict) -> None:
                         min_ownership = (avg_ticket / max_entry_val * 100) if max_entry_val > 0 else 0
                         max_ownership = (avg_ticket / min_entry_val * 100) if min_entry_val > 0 else 0
                         st.caption(f"Expected ownership range: {min_ownership:.1f}% – {max_ownership:.1f}%")
+
+                        # Expected number of initial investments (same as editable view)
+                        absolute_initial_for_bucket = initial_capital_pool * (float(bucket.get('percentage', 0)) / 100.0)
+                        expected_initial_investments = (absolute_initial_for_bucket / avg_ticket) if avg_ticket > 0 else 0
+                        st.caption(f"Expected initial investments: {expected_initial_investments:.1f}")
 
                         st.markdown("<div class='bucket-section-title'><strong>Deployment Schedule</strong></div>", unsafe_allow_html=True)
                         ds = [bucket.get('deploy_y1', 0), bucket.get('deploy_y2', 0), bucket.get('deploy_y3', 0), bucket.get('deploy_y4', 0)]
