@@ -1051,7 +1051,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=No
                 break
 
             # Investment timing (e.g., place it in year 4)
-            invest_month = 3 * 12 + np.random.randint(0, 12)
+            invest_month = np.random.randint(0, 36)
 
             # Process this new investment's lifecycle
             # (This is a simplified version of the main loop's logic)
@@ -1098,7 +1098,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=No
 
             # Append to portfolio details
             portfolio_details.append({
-                'company_id': f"Leftover Company {len(portfolio_details) + 1}",
+                'company_id': f"Company {len(portfolio_details) + 1}",
                 'investment_year': (invest_month // 12) + 1,
                 'stage': bucket.get('name', 'N/A'),
                 'initial_check': ticket_size,
@@ -1402,7 +1402,7 @@ def display_simulation_results(results_df):
         for series in all_tvpi_series:
             clean_series = series.replace([np.inf, -np.inf], np.nan).dropna()
             if not clean_series.empty:
-                counts, _ = np.histogram(clean_series, bins=num_bins, range=(0, hist_range_max))
+                counts, _ = np.histogram(clean_series, bins=num_bins)
                 # Normalize to percentage of total
                 percentages = (counts / len(clean_series)) * 100 if len(clean_series) > 0 else counts
                 if len(percentages) > 0:
@@ -1431,8 +1431,7 @@ def display_simulation_results(results_df):
         fig_tvpi.update_layout(
             title="Distribution of Fund Return Multiples (Total Value / Fund Size)",
             xaxis_title="Fund Return Multiple (TVPI)", yaxis_title="Probability (%)", bargap=0.1,
-            xaxis_range=x_axis_range,
-            yaxis_range=y_axis_range
+            xaxis_range=x_axis_range
         )
         st.plotly_chart(fig_tvpi, use_container_width=True)
 
@@ -1481,8 +1480,7 @@ def display_simulation_results(results_df):
                 xaxis_title=f"Bucket TVPI Multiple",
                 yaxis_title="Probability (%)",
                 bargap=0.1,
-                xaxis_range=x_axis_range,
-                yaxis_range=y_axis_range
+                xaxis_range=x_axis_range
             )
             st.plotly_chart(fig_bucket_tvpi, use_container_width=True)
 
@@ -1511,7 +1509,7 @@ def display_simulation_results(results_df):
         for series in all_moic_series:
             clean_series = series.replace([np.inf, -np.inf], np.nan).dropna()
             if not clean_series.empty:
-                counts, _ = np.histogram(clean_series, bins=num_bins_moic, range=(0, hist_range_max_moic))
+                counts, _ = np.histogram(clean_series, bins=num_bins_moic)
                 percentages = (counts / len(clean_series)) * 100 if len(clean_series) > 0 else counts
                 if len(percentages) > 0:
                     max_y_moic = max(max_y_moic, percentages.max())
@@ -1533,8 +1531,7 @@ def display_simulation_results(results_df):
         fig_moic.update_layout(
             title="Distribution of Fund Return Multiples (Total Value / Invested Capital)",
             xaxis_title="Fund Return Multiple (MOIC)", yaxis_title="Probability (%)", bargap=0.1,
-            xaxis_range=x_axis_range_moic,
-            yaxis_range=y_axis_range_moic
+            xaxis_range=x_axis_range_moic
         )
         st.plotly_chart(fig_moic, use_container_width=True)
 
@@ -1559,8 +1556,7 @@ def display_simulation_results(results_df):
             fig_bucket_moic.update_layout(
                 title=f"MOIC Distribution for '{bucket_name}'",
                 xaxis_title="Bucket MOIC Multiple", yaxis_title="Probability (%)", bargap=0.1,
-                xaxis_range=x_axis_range_moic,
-                yaxis_range=y_axis_range_moic
+                xaxis_range=x_axis_range_moic
             )
             st.plotly_chart(fig_bucket_moic, use_container_width=True)
 
@@ -1916,11 +1912,13 @@ def create_example_portfolios_tab_from_published(published_data: dict, fund_mode
     st.info("These portfolios were preselected during publishing and do not require recomputation.", icon="ℹ️")
 
     label_map = {
+        'p10': "Failure Case (10th Percentile)",
+        'p25': "Bear Case (25th Percentile)",
         'p50': "Median Case (50th Percentile)",
         'p65': "Upper-Median Case (65th Percentile)",
         'p90': "Bull Case (90th Percentile)",
     }
-    keys = ['p50', 'p65', 'p90']
+    keys = ['p10', 'p25', 'p50', 'p65', 'p90']
     tabs = st.tabs([label_map[k] for k in keys])
     for idx, k in enumerate(keys):
         data = published_data.get(k, {})
@@ -2277,6 +2275,8 @@ def _compute_example_portfolios(results_df: pd.DataFrame) -> dict:
             },
             'portfolio_details': details,
         }
+    data['p10'] = pick(0.10)
+    data['p25'] = pick(0.25)
     data['p50'] = pick(0.50)
     data['p65'] = pick(0.65)
     data['p90'] = pick(0.90)
@@ -2665,9 +2665,12 @@ def _render_exit_scenarios_overview_matrix(model: dict) -> None:
         for s in buckets[k].get('scenarios', []):
             name = s.get('name', '')
             if name and name not in scenario_to_val:
-                vmin = f"{float(s.get('exit_valuation_min', 0)):.0f}"
-                vmax = f"{float(s.get('exit_valuation_max', 0)):.0f}"
-                scenario_to_val[name] = f"{vmin}–{vmax}"
+                if name == "Failure":
+                    scenario_to_val[name] = ""
+                else:
+                    vmin = f"{float(s.get('exit_valuation_min', 0)):.0f}"
+                    vmax = f"{float(s.get('exit_valuation_max', 0)):.0f}"
+                    scenario_to_val[name] = f"{vmin}M–{vmax}M"
 
     # Header row: empty left corner + one column per bucket
     left_col_width = 2
@@ -2683,7 +2686,10 @@ def _render_exit_scenarios_overview_matrix(model: dict) -> None:
     for name in scenario_rows:
         row_cols = st.columns([left_col_width] + [1 for _ in keys])
         valtxt = scenario_to_val.get(name, "")
-        row_cols[0].markdown(f"<div class='matrix-cell'>{name} <span style='color:#64748B'>({valtxt})</span></div>", unsafe_allow_html=True)
+        if name == "Failure":
+            row_cols[0].markdown(f"<div class='matrix-cell'>{name}</div>", unsafe_allow_html=True)
+        else:
+            row_cols[0].markdown(f"<div class='matrix-cell'>{name} <span style='color:#64748B'>({valtxt})</span></div>", unsafe_allow_html=True)
         for cidx, k in enumerate(keys, start=1):
             s = per_bucket[k].get(name)
             if not s:
@@ -2694,11 +2700,19 @@ def _render_exit_scenarios_overview_matrix(model: dict) -> None:
                 ymin = int(s.get('exit_year_min', 0))
                 ymax = int(s.get('exit_year_max', 0))
                 # Compact multiline cell with pills for nicer look and centered content
-                row_cols[cidx].markdown(
-                    "<div class='matrix-cell' style='text-align:center'>"
-                    + f"<strong>{prob}</strong><br/>"
-                    + f"<span class='pill pill-dil'>Dil {dil}</span>"
-                    + f"<span class='pill pill-yrs'>{ymin}–{ymax} yrs</span>"
-                    + "</div>",
-                    unsafe_allow_html=True
-                )
+                if name == "Failure":
+                    row_cols[cidx].markdown(
+                        "<div class='matrix-cell' style='text-align:center'>"
+                        + f"<strong>{prob}</strong>"
+                        + "</div>",
+                        unsafe_allow_html=True
+                    )
+                else:
+                   row_cols[cidx].markdown(
+                        "<div class='matrix-cell' style='text-align:center'>"
+                        + f"<strong>{prob}</strong><br/>"
+                        + f"<span class='pill pill-dil'>Dil {dil}</span>"
+                        + f"<span class='pill pill-yrs'>{ymin}–{ymax} yrs</span>"
+                        + "</div>",
+                        unsafe_allow_html=True
+                    )
