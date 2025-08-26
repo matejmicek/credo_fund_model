@@ -1,7 +1,7 @@
 import streamlit as st
 from PIL import Image
 
-im = Image.open("credo_logo.png")
+im = Image.open("favicon.ico")
 st.set_page_config(page_title="Credo VC Fund Model", page_icon=im)
 
 st.image("credo_logo.png", width=200)
