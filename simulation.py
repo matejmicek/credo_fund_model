@@ -26,7 +26,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=No
     # Reserve capital for management fees from the total fund size.
     # The fee cap (17%) is used to determine the total fee reserve.
     # This matches the cap used in the Net IRR calculation later.
-    management_fee_reserve = fund_size * 0.17 
+    management_fee_reserve = fund_size * 0.21
     investable_capital = fund_size - management_fee_reserve
 
     # Investment pools are now derived from the remaining 'investable_capital'.
@@ -463,7 +463,7 @@ def run_monte_carlo_simulation(fund_model, num_simulations=10000, progress_cb=No
             lp_capital_returned = 0
             annual_fee = fund_size * 0.02 # 2% management fee
             total_fees_paid = 0.0
-            max_total_fees = fund_size * 0.17 # Cap at 17%
+            max_total_fees = fund_size * 0.21 # Cap at 17%
 
             for month in range(FUND_LIFE_MONTHS):
                 # Outflows for LP: Investments + Fees

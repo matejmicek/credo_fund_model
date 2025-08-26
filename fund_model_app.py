@@ -308,7 +308,7 @@ def render_fund_model_ui():
     try:
         fund_size_sb = float(model.get('fund_size', 0))
         follow_on_reserve_pct_sb = float(model.get('follow_on_reserve', 0))
-        management_fee_reserve_sb = fund_size_sb * 0.17
+        management_fee_reserve_sb = fund_size_sb * 0.21
         investable_capital_sb = fund_size_sb - management_fee_reserve_sb
         initial_capital_pool_sb = investable_capital_sb * (1 - follow_on_reserve_pct_sb / 100.0)
         follow_on_pool_sb = investable_capital_sb * (follow_on_reserve_pct_sb / 100.0)
@@ -351,7 +351,7 @@ def render_fund_model_ui():
     # --- Capital Pool Calculations for UI display ---
     fund_size = model.get('fund_size', 0)
     follow_on_reserve_pct = model.get('follow_on_reserve', 0)
-    management_fee_reserve = fund_size * 0.17 
+    management_fee_reserve = fund_size * 0.21
     investable_capital = fund_size - management_fee_reserve
     initial_capital_pool = investable_capital * (1 - follow_on_reserve_pct / 100)
     total_follow_on_pool = investable_capital * (follow_on_reserve_pct / 100)
@@ -653,12 +653,6 @@ def render_fund_model_ui():
     
     if 'simulation_results' in st.session_state:
         display_simulation_results(st.session_state.simulation_results)
-        # Display aggregated runtime warnings once (avoid per-iteration slow I/O)
-        warnings_list = st.session_state.get('simulation_runtime_warnings', [])
-        if warnings_list:
-            with st.expander("⚠️ Runtime Notes from Simulation", expanded=False):
-                for w in warnings_list:
-                    st.warning(w)
 
         st.markdown("---")
         st.header("📤 Publish LP Snapshot")
@@ -729,7 +723,7 @@ def display_simulation_results(results_df):
     prob_net_irr_25 = (valid_net_irr >= 0.25).mean() * 100
 
     st.subheader("Fund IRR (Internal Rate of Return)")
-    st.info("Net IRR is calculated assuming a '2 and 20' fund structure (2% annual management fee for 10 years, capped at 17% of total fund size, and 20% carried interest).", icon="ℹ️")
+    st.info("Net IRR is calculated assuming a '2 and 20' fund structure (2% annual management fee for 10 years, capped at 17% of total fund size, and 20% carried interest). Additional 4% is reserved for administrative and audit fees.", icon="ℹ️")
 
     irr_c1, irr_c2 = st.columns(2)
     with irr_c1:
@@ -754,7 +748,7 @@ def display_simulation_results(results_df):
         # Recalculate capital pools to get allocated amounts
         fund_size = model['fund_size']
         follow_on_reserve_pct = model['follow_on_reserve']
-        management_fee_reserve = fund_size * 0.17 
+        management_fee_reserve = fund_size * 0.21
         investable_capital = fund_size - management_fee_reserve
         initial_capital_pool = investable_capital * (1 - follow_on_reserve_pct / 100)
         total_follow_on_pool = investable_capital * (follow_on_reserve_pct / 100)
@@ -1141,15 +1135,24 @@ def create_single_portfolio_view(results_df, fund_model, percentile, tab_title, 
     total_deployed = portfolio_df['initial_check'].sum() + portfolio_df['follow_on_check'].sum()
     total_proceeds = portfolio_df['net_return'].sum()
     
-    sum_c1, sum_c2 = st.columns(2)
+    sum_c1, sum_c2, sum_c3, sum_c4 = st.columns(4)
     sum_c1.metric("Total Capital Deployed", f"${total_deployed:.2f}M")
     sum_c2.metric("Total Proceeds", f"${total_proceeds:.2f}M")
+
+    # Calculate total number of deals
+    total_deals = portfolio_df['company_id'].nunique()
+    sum_c3.metric("Total Number of Deals", total_deals)
+
+    # Calculate number of companies with > 800k investment
+    total_investment_per_company = portfolio_df.groupby('company_id')[['initial_check', 'follow_on_check']].sum().sum(axis=1)
+    companies_over_800k = (total_investment_per_company > 0.6).sum()
+    sum_c4.metric("Companies > €600k invested", companies_over_800k)
 
     with st.expander("Show Deployment Statistics by Bucket for this Portfolio"):
         # Calculate allocated capital amounts from the model
         fund_size = fund_model['fund_size']
         follow_on_reserve_pct = fund_model['follow_on_reserve']
-        management_fee_reserve = fund_size * 0.17
+        management_fee_reserve = fund_size * 0.21
         investable_capital = fund_size - management_fee_reserve
         initial_capital_pool = investable_capital * (1 - follow_on_reserve_pct / 100)
         total_follow_on_pool = investable_capital * (follow_on_reserve_pct / 100)
@@ -1205,7 +1208,7 @@ def create_single_portfolio_view(results_df, fund_model, percentile, tab_title, 
         "$50M Exit": "$50M",
         "$100M Exit": "$100M",
         "$500M Exit": "$500M",
-        "$1B+ Exit": "$1B+",
+        "$1B Exit": "$1B",
         "$5B+ Exit": "$5B+"
     }
     ordered_scenarios = list(scenario_map.keys())
@@ -1366,15 +1369,22 @@ def create_example_portfolios_tab_from_published(published_data: dict, fund_mode
     st.info("These portfolios were preselected during publishing and do not require recomputation.", icon="ℹ️")
 
     label_map = {
+        'moic1x': "Closest to 1x MOIC",
+        'moic2x': "Closest to 2x MOIC",
         'p10': "Failure Case (10th Percentile)",
         'p25': "Bear Case (25th Percentile)",
         'p50': "Median Case (50th Percentile)",
-        'p65': "Upper-Median Case (65th Percentile)",
+        'p70': "Upper-Median Case (70th Percentile)",
         'p90': "Bull Case (90th Percentile)",
     }
-    keys = ['p10', 'p25', 'p50', 'p65', 'p90']
-    tabs = st.tabs([label_map[k] for k in keys])
-    for idx, k in enumerate(keys):
+    keys = ['moic1x', 'moic2x', 'p10', 'p25', 'p50', 'p70', 'p90']
+    
+    # Filter out keys that are not present in the published_data
+    available_keys = [k for k in keys if k in published_data]
+    
+    tabs = st.tabs([label_map[k] for k in available_keys])
+    
+    for idx, k in enumerate(available_keys):
         data = published_data.get(k, {})
         with tabs[idx]:
             _render_single_published_portfolio(data, fund_model, label_map[k])
@@ -1399,14 +1409,24 @@ def _render_single_published_portfolio(data: dict, fund_model: dict, tab_title: 
     st.subheader("Deployment Summary")
     total_deployed = portfolio_df['initial_check'].sum() + portfolio_df['follow_on_check'].sum()
     total_proceeds = portfolio_df['net_return'].sum()
-    sum_c1, sum_c2 = st.columns(2)
+    
+    sum_c1, sum_c2, sum_c3, sum_c4 = st.columns(4)
     sum_c1.metric("Total Capital Deployed", f"${total_deployed:.2f}M")
     sum_c2.metric("Total Proceeds", f"${total_proceeds:.2f}M")
+
+    # Calculate total number of deals
+    total_deals = portfolio_df['company_id'].nunique()
+    sum_c3.metric("Total Number of Deals", total_deals)
+
+    # Calculate number of companies with > 800k investment
+    total_investment_per_company = portfolio_df.groupby('company_id')[['initial_check', 'follow_on_check']].sum().sum(axis=1)
+    companies_over_800k = (total_investment_per_company > 0.8).sum()
+    sum_c4.metric("Companies > $800k invested", companies_over_800k)
 
     with st.expander("Show Deployment Statistics by Bucket for this Portfolio"):
         fund_size = fund_model['fund_size']
         follow_on_reserve_pct = fund_model['follow_on_reserve']
-        management_fee_reserve = fund_size * 0.17
+        management_fee_reserve = fund_size * 0.21
         investable_capital = fund_size - management_fee_reserve
         initial_capital_pool = investable_capital * (1 - follow_on_reserve_pct / 100)
         total_follow_on_pool = investable_capital * (follow_on_reserve_pct / 100)
@@ -1458,7 +1478,7 @@ def _render_single_published_portfolio(data: dict, fund_model: dict, tab_title: 
         "$50M Exit": "$50M",
         "$100M Exit": "$100M",
         "$500M Exit": "$500M",
-        "$1B+ Exit": "$1B+",
+        "$1B Exit": "$1B",
         "$5B+ Exit": "$5B+"
     }
     ordered_scenarios = list(scenario_map.keys())
@@ -1716,7 +1736,8 @@ def _publish_lp_snapshot(slug: str) -> None:
 
 def _compute_example_portfolios(results_df: pd.DataFrame) -> dict:
     data = {}
-    def pick(p: float):
+    
+    def pick_by_percentile(p: float):
         target = results_df['tvpi'].quantile(p)
         row = results_df.iloc[(results_df['tvpi'] - target).abs().argsort()[0]]
         details = row['portfolio_details'] if 'portfolio_details' in results_df.columns else []
@@ -1729,11 +1750,31 @@ def _compute_example_portfolios(results_df: pd.DataFrame) -> dict:
             },
             'portfolio_details': details,
         }
-    data['p10'] = pick(0.10)
-    data['p25'] = pick(0.25)
-    data['p50'] = pick(0.50)
-    data['p65'] = pick(0.65)
-    data['p90'] = pick(0.90)
+        
+    def pick_by_moic(target_moic: float):
+        row = results_df.iloc[(results_df['moic'] - target_moic).abs().argsort()[0]]
+        details = row['portfolio_details'] if 'portfolio_details' in results_df.columns else []
+        return {
+            'run_metrics': {
+                'tvpi': float(row.get('tvpi', np.nan)),
+                'moic': float(row.get('moic', np.nan)),
+                'gross_irr': float(row.get('gross_irr', np.nan)),
+                'net_irr': float(row.get('net_irr', np.nan)),
+            },
+            'portfolio_details': details,
+        }
+
+    # Add 1x and 2x MOIC portfolios
+    data['moic1x'] = pick_by_moic(1.0)
+    data['moic2x'] = pick_by_moic(2.0)
+
+    # Add specified percentiles
+    data['p10'] = pick_by_percentile(0.10)
+    data['p25'] = pick_by_percentile(0.25)
+    data['p50'] = pick_by_percentile(0.50)
+    data['p70'] = pick_by_percentile(0.70)
+    data['p90'] = pick_by_percentile(0.90)
+    
     return data
 
 
@@ -1788,14 +1829,27 @@ def _load_published(slug: str):
 
 
 def _render_fund_model_assumptions_readonly(model: dict) -> None:
-    st.title(f"🔮 {model.get('display_name', 'Probabilistic VC Fund Model')} — LP View")
+    c1, c2 = st.columns([4, 1])
+    with c1:
+        st.title(f"🔮 {model.get('display_name', 'Probabilistic VC Fund Model')} — LP View")
+    with c2:
+        # Add some vertical space to better align with the title
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Switch to Editable View"):
+            params = _get_query_params()
+            if 'view' in params:
+                del params['view']
+            params['app_mode'] = 'vc_fund_model'
+            _set_query_params(params)
+            st.rerun()
+
     if model.get('description'):
         st.markdown(model['description'])
 
     # Global config cards
     fund_size = float(model.get('fund_size', 0))
     follow_on_reserve_pct = float(model.get('follow_on_reserve', 0))
-    management_fee_reserve = fund_size * 0.17
+    management_fee_reserve = fund_size * 0.21
     investable_capital = fund_size - management_fee_reserve
     initial_capital_pool = investable_capital * (1 - follow_on_reserve_pct / 100)
     total_follow_on_pool = investable_capital * (follow_on_reserve_pct / 100)
@@ -1823,7 +1877,7 @@ def _render_fund_model_assumptions_readonly(model: dict) -> None:
                     st.markdown("<div class='bucket-col'>", unsafe_allow_html=True)
                     with st.container(border=False):
                         # Compact header
-                        st.markdown(f"<div style='font-size:0.95rem; font-weight:700'>{bucket.get('name', '')} <span style='font-weight:500'>( {int(bucket.get('percentage', 0))}% initial / {int(bucket.get('follow_on_allocation_pct', 0))}% follow-on )</span></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='font-size:0.95rem; font-weight:700'>{bucket.get('name', '')} <span style='font-weight:500'></br>( {int(bucket.get('percentage', 0))}% initial / {int(bucket.get('follow_on_allocation_pct', 0))}% follow-on )</span></div>", unsafe_allow_html=True)
                         cc1, cc2, cc3 = st.columns(3)
                         cc1.metric("Avg Ticket", f"${float(bucket.get('avg_ticket', 0)):.1f}M")
                         cc2.metric("Entry Val Min", f"${float(bucket.get('entry_valuation_min', 0)):.1f}M")
@@ -1977,7 +2031,7 @@ def _render_exit_scenarios_overview_matrix(model: dict) -> None:
 
     # Canonical order template (used only to order if present); rows are derived from the union across buckets
     canonical_order = [
-        "Failure", "$10M Exit", "$50M Exit", "$100M Exit", "$500M Exit", "$1B+ Exit",
+        "Failure", "$10M Exit", "$50M Exit", "$100M Exit", "$500M Exit", "$1B Exit",
         "Base Case", "Home Run"
     ]
 

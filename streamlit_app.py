@@ -43,9 +43,18 @@ if forced_lp_mode:
     )
 if not forced_lp_mode:
     st.sidebar.title("App Navigation")
+
+    # Check for app_mode param to set default tab
+    nav_param = _get_param('app_mode')
+    options = ["Startup Analysis", "VC Fund Model", "Exit Probability Model"]
+    default_index = 0
+    if nav_param == 'vc_fund_model':
+        default_index = options.index("VC Fund Model")
+
     app_mode = st.sidebar.radio(
         "Choose a section to explore",
-        ["Startup Analysis", "VC Fund Model", "Exit Probability Model"]
+        options,
+        index=default_index
     )
 else:
     # Force VC Fund Model when LP deep link is used
